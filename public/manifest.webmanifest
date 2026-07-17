@@ -1,0 +1,10 @@
+{
+  "name": "Restroom Report",
+  "short_name": "Restroom Report",
+  "description": "Know before you go. Find and rate public-access restrooms.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#edf3f8",
+  "theme_color": "#0a84ff",
+  "icons": [{"src":"/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
