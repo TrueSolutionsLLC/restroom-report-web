@@ -41,6 +41,20 @@ const milesBetween = (a: Coordinates, b: Coordinates) => {
   return 3958.8 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 };
 
+const authErrorMessage = (error: unknown) => {
+  const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+  const messages: Record<string, string> = {
+    "auth/unauthorized-domain": "This domain must be authorized in Firebase Authentication settings.",
+    "auth/operation-not-allowed": "This sign-in provider still needs to be enabled in Firebase.",
+    "auth/popup-blocked": "Your browser blocked the sign-in window. Allow pop-ups and try again.",
+    "auth/popup-closed-by-user": "Sign-in was cancelled.",
+    "auth/cancelled-popup-request": "Another sign-in window is already open.",
+    "auth/account-exists-with-different-credential": "An account already exists with the same email using another sign-in method.",
+    "auth/network-request-failed": "The sign-in request lost its internet connection. Please try again.",
+  };
+  return messages[code] ?? `Sign-in could not be completed${code ? ` (${code.replace("auth/", "")})` : ""}.`;
+};
+
 export default function Home() {
   const [places, setPlaces] = useState<LivePlace[]>([]);
   const [selected, setSelected] = useState<LivePlace | null>(null);
@@ -154,7 +168,7 @@ export default function Home() {
   const authenticate = async (provider: "google" | "apple") => {
     setBusy(true);
     try { const result = provider === "google" ? await signInWithGoogle() : await signInWithApple(); setUser(result.user); notify(`Signed in as ${result.user.displayName ?? result.user.email ?? "traveler"}`); setPanel("account"); }
-    catch { notify("Sign-in was cancelled or unavailable"); }
+    catch (error) { notify(authErrorMessage(error)); }
     finally { setBusy(false); }
   };
 
