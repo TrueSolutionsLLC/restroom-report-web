@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
 import { ensureAnonymousUser, submitReview, subscribeToStations, type LivePlace } from "./lib/firestore";
 import type { User } from "firebase/auth";
+
+const RestroomMap = dynamic(() => import("./components/RestroomMap"), { ssr: false });
 
 type Place = { id:number|string; name:string; type:string; address:string; score:number|null; reports:number; color:string; x:number; y:number; status:string; detail:string };
 
@@ -85,11 +88,9 @@ export default function Home() {
     </header>
 
     <section className="map-area">
-      <div className="map-grid"/><div className="river"/><div className="highway h1">I–44</div><div className="highway h2">MO–141</div>
+      <RestroomMap places={filtered as LivePlace[]} selected={selected as LivePlace} onSelect={select} userCoords={userCoords}/>
       <div className="searchbox"><Icon name="search"/><input aria-label="Search places" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search restrooms, places or cities"/><kbd>⌘ K</kbd></div>
       <div className="filters">{["All","Gas station","Truck stop","Rest area","Fast food"].map(f=><button key={f} className={filter===f?"selected":""} onClick={()=>setFilter(f)}>{f}</button>)}</div>
-      {filtered.map(p=><button key={p.id} aria-label={`${p.name}, score ${p.score??"unrated"}`} onClick={()=>select(p)} className={`pin ${p.color} ${selected.id===p.id?"chosen":""}`} style={{left:`${p.x}%`,top:`${p.y}%`}}><span>{p.score??"?"}</span><i/></button>)}
-      <span className="you" style={{left:"52%",top:"58%"}}><i/></span>
       <button className={`locate ${locationState}`} aria-label="Find my location" onClick={findMe}><Icon name="locate"/></button>
       <button className="mobile-list" onClick={()=>setPanel("list")}><Icon name="list"/> {filtered.length} nearby</button>
 
