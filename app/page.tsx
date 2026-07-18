@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
 import {
-  addStation, completeRedirectSignIn, ensureAnonymousUser, signInWithApple, signInWithGoogle, signOutUser,
+  addStation, completeRedirectSignIn, ensureAnonymousUser, preloadAppleSignIn, signInWithApple, signInWithGoogle, signOutUser,
   submitReview, subscribeToReviews, subscribeToStations, type LivePlace, type StationReview,
 } from "./lib/firestore";
 
@@ -51,6 +51,10 @@ const authErrorMessage = (error: unknown) => {
     "auth/cancelled-popup-request": "Another sign-in window is already open.",
     "auth/account-exists-with-different-credential": "An account already exists with the same email using another sign-in method.",
     "auth/network-request-failed": "The sign-in request lost its internet connection. Please try again.",
+    "auth/apple-invalid-state": "Apple sign-in returned an invalid security state. Please try again.",
+    "auth/apple-missing-id-token": "Apple did not return the identity needed to sign in. Please try again.",
+    "auth/missing-or-invalid-nonce": "Apple sign-in could not pass its security check. Refresh the page and try again.",
+    "auth/invalid-credential": "Apple returned a credential that Firebase could not verify. Please try again.",
   };
   return messages[code] ?? `Sign-in could not be completed${code ? ` (${code.replace("auth/", "")})` : ""}.`;
 };
@@ -90,6 +94,7 @@ export default function Home() {
     window.addEventListener("beforeinstallprompt", installHandler);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
     initializeFirebaseAnalytics().catch(() => {});
+    preloadAppleSignIn();
     let stopAuth = () => {};
     let cancelled = false;
     const startAuth = async () => {

@@ -1,6 +1,101 @@
 import { addDoc, collection, limit, onSnapshot, query, serverTimestamp, where } from "firebase/firestore";
-import { GoogleAuthProvider, OAuthProvider, getRedirectResult, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut, type User } from "firebase/auth";
+import { GoogleAuthProvider, OAuthProvider, getRedirectResult, onAuthStateChanged, signInAnonymously, signInWithCredential, signInWithPopup, signOut, type User, type UserCredential } from "firebase/auth";
 import { auth, db } from "./firebase";
+
+const APPLE_SERVICE_ID = "com.robbie.CleanStop.web";
+const APPLE_REDIRECT_URI = "https://restroom-report.com/__/auth/handler";
+const NONCE_CHARACTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._";
+
+type AppleAuthorizationResponse = {
+  authorization?: {
+    code?: string;
+    id_token?: string;
+    state?: string;
+  };
+  user?: {
+    email?: string;
+    name?: { firstName?: string; lastName?: string };
+  };
+};
+
+type AppleAuthApi = {
+  init: (config: {
+    clientId: string;
+    scope: string;
+    redirectURI: string;
+    state: string;
+    nonce: string;
+    usePopup: boolean;
+  }) => void;
+  signIn: () => Promise<AppleAuthorizationResponse>;
+};
+
+declare global {
+  interface Window {
+    AppleID?: { auth: AppleAuthApi };
+  }
+}
+
+type PreparedAppleSignIn = {
+  authApi: AppleAuthApi;
+  rawNonce: string;
+  hashedNonce: string;
+};
+
+let preparedAppleSignIn: Promise<PreparedAppleSignIn> | null = null;
+
+function createRandomString(length = 32) {
+  const randomBytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(randomBytes, byte => NONCE_CHARACTERS[byte % NONCE_CHARACTERS.length]).join("");
+}
+
+async function sha256(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function loadAppleAuthApi() {
+  if (window.AppleID?.auth) return Promise.resolve(window.AppleID.auth);
+
+  return new Promise<AppleAuthApi>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-restroom-report-apple-auth="true"]');
+    const script = existing ?? document.createElement("script");
+
+    const loaded = () => {
+      if (window.AppleID?.auth) resolve(window.AppleID.auth);
+      else reject(new Error("Apple sign-in did not finish loading."));
+    };
+    const failed = () => reject(new Error("Apple sign-in could not be loaded."));
+
+    script.addEventListener("load", loaded, { once: true });
+    script.addEventListener("error", failed, { once: true });
+
+    if (!existing) {
+      script.src = "https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js";
+      script.async = true;
+      script.dataset.restroomReportAppleAuth = "true";
+      document.head.appendChild(script);
+    }
+  });
+}
+
+async function prepareAppleAttempt(): Promise<PreparedAppleSignIn> {
+  const [authApi, rawNonce] = await Promise.all([
+    loadAppleAuthApi(),
+    Promise.resolve(createRandomString()),
+  ]);
+  return { authApi, rawNonce, hashedNonce: await sha256(rawNonce) };
+}
+
+function getPreparedAppleSignIn() {
+  if (!preparedAppleSignIn) {
+    preparedAppleSignIn = prepareAppleAttempt().catch(error => {
+      preparedAppleSignIn = null;
+      throw error;
+    });
+  }
+  return preparedAppleSignIn;
+}
 
 export type LivePlace = {
   id: string; name: string; type: string; address: string; score: number | null; reports: number;
@@ -78,22 +173,42 @@ export function ensureAnonymousUser(onUser: (user: User) => void, onError: (erro
 
 export const signInWithGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
 export const completeRedirectSignIn = () => getRedirectResult(auth);
-export const signInWithApple = async () => {
-  const provider = new OAuthProvider("apple.com");
-  provider.addScope("name");
-  provider.addScope("email");
+export const preloadAppleSignIn = () => {
+  if (typeof window !== "undefined") void getPreparedAppleSignIn().catch(() => {});
+};
+export const signInWithApple = async (): Promise<UserCredential> => {
+  if (typeof window === "undefined") throw new Error("Apple sign-in requires a browser.");
 
-  const prefersRedirect = typeof window !== "undefined" && (
-    window.matchMedia("(pointer: coarse)").matches ||
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-  );
+  const { authApi, rawNonce, hashedNonce } = await getPreparedAppleSignIn();
+  preparedAppleSignIn = null;
 
-  if (prefersRedirect) {
-    await signInWithRedirect(auth, provider);
-    return null;
+  const state = createRandomString();
+  authApi.init({
+    clientId: APPLE_SERVICE_ID,
+    scope: "name email",
+    redirectURI: APPLE_REDIRECT_URI,
+    state,
+    nonce: hashedNonce,
+    usePopup: true,
+  });
+
+  const response = await authApi.signIn();
+  if (response.authorization?.state !== state) {
+    const error = new Error("Apple returned an invalid sign-in state.");
+    Object.assign(error, { code: "auth/apple-invalid-state" });
+    throw error;
   }
 
-  return signInWithPopup(auth, provider);
+  const idToken = response.authorization?.id_token;
+  if (!idToken) {
+    const error = new Error("Apple did not return an identity token.");
+    Object.assign(error, { code: "auth/apple-missing-id-token" });
+    throw error;
+  }
+
+  const provider = new OAuthProvider("apple.com");
+  const credential = provider.credential({ idToken, rawNonce });
+  return signInWithCredential(auth, credential);
 };
 export const signOutUser = () => signOut(auth).then(() => signInAnonymously(auth));
 
