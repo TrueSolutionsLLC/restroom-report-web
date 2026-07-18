@@ -140,6 +140,13 @@ export type UserIssueReport = {
   createdAt: Date | null;
 };
 
+export type GeoBounds = {
+  south: number;
+  north: number;
+  west: number;
+  east: number;
+};
+
 const displayType = (raw: string) => ({ gasStation: "Gas station", travelCenter: "Truck stop", truckStop: "Truck stop", restArea: "Rest area", fastFood: "Fast food" }[raw] ?? "Gas station");
 const storageType = (label: string) => ({ "Gas station": "gasStation", "Truck stop": "truckStop", "Rest area": "restArea", "Fast food": "fastFood" }[label] ?? "gasStation");
 const colorFor = (type: string) => ({ "Gas station": "blue", "Truck stop": "orange", "Rest area": "teal", "Fast food": "rose" }[type] ?? "blue");
@@ -173,6 +180,59 @@ export function subscribeToStations(onPlaces: (places: LivePlace[]) => void, onE
     }).filter(place => Number.isFinite(place.latitude) && Number.isFinite(place.longitude) && Math.abs(place.latitude) <= 90 && Math.abs(place.longitude) <= 180);
     onPlaces(mapped);
   }, error => onError(error));
+}
+
+export function subscribeToStationsInBounds(bounds: GeoBounds, onPlaces: (places: LivePlace[]) => void, onError: (error: Error) => void) {
+  const stations = collection(db, "stations");
+  const fullWorld = bounds.west === -180 && bounds.east === 180;
+  const stationQueries = fullWorld
+    ? [query(stations, limit(750))]
+    : bounds.west <= bounds.east
+      ? [query(stations, where("longitude", ">=", bounds.west), where("longitude", "<=", bounds.east), limit(750))]
+      : [
+          query(stations, where("longitude", ">=", bounds.west), where("longitude", "<=", 180), limit(750)),
+          query(stations, where("longitude", ">=", -180), where("longitude", "<=", bounds.east), limit(750)),
+        ];
+
+  const snapshots = new Map<number, LivePlace[]>();
+  const emit = () => {
+    if (snapshots.size !== stationQueries.length) return;
+    const visible = new Map<string, LivePlace>();
+    snapshots.forEach(items => items.forEach(place => {
+      if (place.latitude >= bounds.south && place.latitude <= bounds.north) visible.set(place.id, place);
+    }));
+    onPlaces([...visible.values()]);
+  };
+
+  const unsubscribers = stationQueries.map((stationsQuery, index) => onSnapshot(stationsQuery, snapshot => {
+    const mapped = snapshot.docs.map(stationDoc => {
+      const data = stationDoc.data();
+      const type = displayType(String(data.stationType ?? data.locationType ?? "gasStation"));
+      const reviewCount = Number(data.reviewCount ?? 0);
+      const address = String(data.address ?? [data.city, data.state].filter(Boolean).join(", ") ?? "");
+      return {
+        id: stationDoc.id,
+        name: String(data.name ?? data.brand ?? "Restroom"),
+        type,
+        address,
+        score: reviewCount > 0 ? Math.round(Number(data.cleanScore ?? 0) * 10) / 10 : null,
+        reports: reviewCount,
+        color: colorFor(type),
+        latitude: Number(data.latitude ?? 0),
+        longitude: Number(data.longitude ?? 0),
+        status: data.restroomStatus && data.restroomStatus !== "unknown" ? readable(data.restroomStatus) : "Status not confirmed",
+        detail: [data.restroomLayoutType, data.restroomAccessType].filter(value => value && value !== "unknown").map(readable).join(" • ") || "Community-supplied location",
+        accessType: readable(data.restroomAccessType),
+        layoutType: readable(data.restroomLayoutType),
+        city: String(data.city ?? ""),
+        state: String(data.state ?? ""),
+      } satisfies LivePlace;
+    }).filter(place => Number.isFinite(place.latitude) && Number.isFinite(place.longitude) && Math.abs(place.latitude) <= 90 && Math.abs(place.longitude) <= 180);
+    snapshots.set(index, mapped);
+    emit();
+  }, error => onError(error)));
+
+  return () => unsubscribers.forEach(unsubscribe => unsubscribe());
 }
 
 export function subscribeToReviews(stationId: string, onReviews: (reviews: StationReview[]) => void, onError: (error: Error) => void) {

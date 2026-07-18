@@ -3,17 +3,18 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
 import {
   addStation, completeRedirectSignIn, ensureAnonymousUser, preloadAppleSignIn, signInWithApple, signInWithGoogle, signOutUser,
-  submitReview, subscribeToReviews, subscribeToStations, subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews,
-  type LivePlace, type StationReview, type UserIssueReport, type UserProfile, type UserReview,
+  submitReview, subscribeToReviews, subscribeToStationsInBounds, subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews,
+  type GeoBounds, type LivePlace, type StationReview, type UserIssueReport, type UserProfile, type UserReview,
 } from "./lib/firestore";
 
 const RestroomMap = dynamic(() => import("./components/RestroomMap"), { ssr: false });
 type Coordinates = { latitude: number; longitude: number };
+type MapViewport = { center: Coordinates; bounds: GeoBounds; zoom: number };
 type Panel = "none" | "list" | "detail" | "rate" | "add" | "reports" | "account" | "install";
 type DeferredInstall = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 type AccountData = {
@@ -84,6 +85,7 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [userCoords, setUserCoords] = useState<Coordinates | null>(null);
   const [mapCenter, setMapCenter] = useState<Coordinates>({ latitude: 38.4, longitude: -96.5 });
+  const [mapViewport, setMapViewport] = useState<MapViewport | null>(null);
   const [focus, setFocus] = useState<Coordinates | null>(null);
   const [locationState, setLocationState] = useState<"idle" | "finding" | "found" | "blocked">("idle");
   const [cloudReady, setCloudReady] = useState(false);
@@ -126,8 +128,26 @@ export default function Home() {
       if (!cancelled) stopAuth = ensureAnonymousUser(current => { setUser(current); setCloudReady(true); }, () => setCloudReady(false));
     };
     startAuth();
-    const stopStations = subscribeToStations(items => { setPlaces(items); setLoadingPlaces(false); setCloudReady(true); }, () => { setLoadingPlaces(false); setCloudReady(false); });
-    return () => { cancelled = true; window.removeEventListener("beforeinstallprompt", installHandler); stopAuth(); stopStations(); };
+    return () => { cancelled = true; window.removeEventListener("beforeinstallprompt", installHandler); stopAuth(); };
+  }, []);
+
+  useEffect(() => {
+    if (!mapViewport) return;
+    let stopStations = () => {};
+    const timer = window.setTimeout(() => {
+      stopStations = subscribeToStationsInBounds(mapViewport.bounds, items => {
+        setPlaces(items); setLoadingPlaces(false); setCloudReady(true);
+      }, () => {
+        setLoadingPlaces(false); setCloudReady(false); setToast("Locations in this map area could not be refreshed");
+      });
+    }, 300);
+    return () => { window.clearTimeout(timer); stopStations(); };
+  }, [mapViewport]);
+
+  const updateMapViewport = useCallback((viewport: MapViewport) => {
+    setMapCenter(viewport.center);
+    setMapViewport(viewport);
+    setLoadingPlaces(true);
   }, []);
 
   useEffect(() => {
@@ -160,9 +180,9 @@ export default function Home() {
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const result = places.filter(place => (filter === "All" || place.type === filter) && (!needle || `${place.name} ${place.address} ${place.city} ${place.state} ${place.type}`.toLowerCase().includes(needle)));
-    const origin = userCoords ?? mapCenter;
+    const origin = mapCenter;
     return [...result].sort((a, b) => milesBetween(origin, a) - milesBetween(origin, b));
-  }, [places, filter, query, userCoords, mapCenter]);
+  }, [places, filter, query, mapCenter]);
 
   const stationNames = useMemo(() => new Map(places.map(place => [place.id, place.name])), [places]);
   const myContributions = useMemo(() => [
@@ -258,10 +278,10 @@ export default function Home() {
     </header>
 
     <section className={`map-area ${selected ? "has-selection" : "no-selection"}`}>
-      <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onCenterChange={setMapCenter}/>
+      <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onViewportChange={updateMapViewport}/>
       <form className="searchbox" onSubmit={event => { event.preventDefault(); searchLocation(); }}><Icon name="search"/><input aria-label="Search restrooms, places or cities" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search restrooms, places or cities"/><button type="submit" disabled={busy}>{busy ? "…" : "Go"}</button></form>
       <div className="filters" aria-label="Restroom categories">{TYPES.map(type => <button key={type} className={filter === type ? "selected" : ""} onClick={() => setFilter(type)}>{type}</button>)}</div>
-      <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{filtered.length}</span> places</button>
+      <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{loadingPlaces ? "…" : filtered.length}</span> places</button>
       <button className={`locate ${locationState}`} onClick={findMe}><Icon name="locate"/><span>{locationState === "finding" ? "Finding…" : "Near me"}</span></button>
       <button className="add-fab" onClick={() => setPanel("add")}><Icon name="plus"/><span>Add restroom</span></button>
 
