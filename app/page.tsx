@@ -83,6 +83,8 @@ export default function Home() {
   const [submitted, setSubmitted] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", address: "", type: "Gas station", accessType: "unknown", layoutType: "unknown" });
 
+  const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 3000); };
+
   useEffect(() => {
     const installHandler = (event: Event) => { event.preventDefault(); setInstallPrompt(event as DeferredInstall); };
     window.addEventListener("beforeinstallprompt", installHandler);
@@ -115,7 +117,6 @@ export default function Home() {
     return subscribeToReviews(selected.id, setReviews, () => setReviews([]));
   }, [selected]);
 
-  const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 3000); };
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const result = places.filter(place => (filter === "All" || place.type === filter) && (!needle || `${place.name} ${place.address} ${place.city} ${place.state} ${place.type}`.toLowerCase().includes(needle)));

@@ -4,7 +4,7 @@ import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBqMT5AuA4WrAklN_-5bhz5Ynu94BDMj68",
-  authDomain: "cleanstop-fa6ee.firebaseapp.com",
+  authDomain: "restroom-report.com",
   projectId: "cleanstop-fa6ee",
   storageBucket: "cleanstop-fa6ee.firebasestorage.app",
   messagingSenderId: "748335657785",
