@@ -7,14 +7,11 @@ import "leaflet/dist/leaflet.css";
 
 const colors: Record<string, string> = { blue: "#0a84ff", orange: "#f08a32", teal: "#18a7a1", rose: "#ef5470" };
 
-function MapController({ selected, userCoords }: { selected: LivePlace; userCoords: { latitude: number; longitude: number } | null }) {
+function MapController({ userCoords }: { userCoords: { latitude: number; longitude: number } | null }) {
   const map = useMap();
   useEffect(() => {
     if (userCoords) map.flyTo([userCoords.latitude, userCoords.longitude], Math.max(map.getZoom(), 13), { duration: .8 });
   }, [map, userCoords]);
-  useEffect(() => {
-    if (selected.latitude && selected.longitude) map.flyTo([selected.latitude, selected.longitude], Math.max(map.getZoom(), 12), { duration: .65 });
-  }, [map, selected.id, selected.latitude, selected.longitude]);
   return null;
 }
 
@@ -26,7 +23,7 @@ export default function RestroomMap({ places, selected, onSelect, userCoords }: 
 }) {
   return <MapContainer center={[38.627, -90.1994]} zoom={5} minZoom={3} maxZoom={19} zoomControl={false} className="real-map">
     <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-    <MapController selected={selected} userCoords={userCoords} />
+    <MapController userCoords={userCoords} />
     {places.filter(p => Number.isFinite(p.latitude) && Number.isFinite(p.longitude)).map(place => {
       const active = selected.id === place.id;
       return <CircleMarker key={place.id} center={[place.latitude, place.longitude]} radius={active ? 14 : 10}

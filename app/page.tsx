@@ -91,7 +91,7 @@ export default function Home() {
       <RestroomMap places={filtered as LivePlace[]} selected={selected as LivePlace} onSelect={select} userCoords={userCoords}/>
       <div className="searchbox"><Icon name="search"/><input aria-label="Search places" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search restrooms, places or cities"/><kbd>⌘ K</kbd></div>
       <div className="filters">{["All","Gas station","Truck stop","Rest area","Fast food"].map(f=><button key={f} className={filter===f?"selected":""} onClick={()=>setFilter(f)}>{f}</button>)}</div>
-      <button className={`locate ${locationState}`} aria-label="Find my location" onClick={findMe}><Icon name="locate"/></button>
+      <button className={`locate ${locationState}`} aria-label="Find my location" onClick={findMe}><Icon name="locate"/><span>{locationState==="finding"?"Finding…":"Near me"}</span></button>
       <button className="mobile-list" onClick={()=>setPanel("list")}><Icon name="list"/> {filtered.length} nearby</button>
 
       <aside className="place-card">

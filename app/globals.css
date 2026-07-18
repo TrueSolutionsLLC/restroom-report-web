@@ -11,6 +11,8 @@
 
 /* Real, touch-enabled map */
 .real-map{position:absolute!important;inset:0;width:100%;height:100%;z-index:1;background:#e8eee8;touch-action:pan-x pan-y}
+.locate{z-index:7;width:auto;padding:0 15px;gap:8px;font-weight:750}
+.locate span{display:block}
 .leaflet-control-attribution{font-size:9px!important;opacity:.7}
 .leaflet-tooltip{border:0!important;border-radius:12px!important;padding:8px 10px!important;box-shadow:0 8px 24px #19314630!important;color:#10233d!important}
 
@@ -35,4 +37,6 @@
   .actions button{padding:10px 7px}
   .add-fab{right:14px;bottom:169px;width:48px;height:48px;padding:14px}
   .locate{right:14px;bottom:225px;width:48px;height:48px}
+  .locate{padding:0;gap:0}
+  .locate span{display:none}
 }
