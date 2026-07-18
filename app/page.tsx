@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
+import { geocodeAppleMaps, isAppleMapsConfigured, searchAppleMaps } from "./lib/mapkit";
 import {
   addStation, completeRedirectSignIn, ensureAnonymousUser, preloadAppleSignIn, signInWithApple, signInWithGoogle, signOutUser,
   submitReview, subscribeToReviews, subscribeToStationsInBounds, subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews,
@@ -217,6 +218,16 @@ export default function Home() {
     if (filtered.length) { selectPlace(filtered[0]); return; }
     setBusy(true);
     try {
+      if (isAppleMapsConfigured()) {
+        try {
+          const result = await searchAppleMaps(query, mapCenter);
+          setFocus({ latitude: result.latitude, longitude: result.longitude });
+          notify(`Map moved to ${result.label}`);
+          return;
+        } catch (error) {
+          console.warn("Apple Maps search was unavailable; trying the search fallback.", error);
+        }
+      }
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
       const result = (await response.json())[0];
       if (!result) throw new Error();
@@ -225,7 +236,14 @@ export default function Home() {
     finally { setBusy(false); }
   };
 
-  const directions = (place: LivePlace) => window.open(`https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, "_blank", "noopener,noreferrer");
+  const directions = (place: LivePlace) => {
+    const appleDevice = /Macintosh|Mac OS X|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const destination = `${place.latitude},${place.longitude}`;
+    const url = appleDevice
+      ? `https://maps.apple.com/?daddr=${encodeURIComponent(destination)}&dirflg=d`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
   const openRating = () => { setPanel("rate"); setRating(0); setOdor(0); setCrowd("quiet"); setComment(""); setAnswers(Object.fromEntries(CHECKS.map(item => [item.key, null]))); setSubmitted(false); };
   const ratingComplete = rating > 0 && odor > 0 && Object.values(answers).every(value => value !== null);
 
@@ -240,6 +258,19 @@ export default function Home() {
   };
 
   const geocode = async (address: string) => {
+    if (isAppleMapsConfigured()) {
+      try {
+        const item = await geocodeAppleMaps(address, mapCenter);
+        return {
+          latitude: item.latitude,
+          longitude: item.longitude,
+          city: item.city,
+          state: item.state,
+        };
+      } catch (error) {
+        console.warn("Apple Maps geocoding was unavailable; trying the address fallback.", error);
+      }
+    }
     const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(address)}`);
     const item = (await response.json())[0];
     if (!item) throw new Error("Address not found");
