@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
 import {
-  addStation, ensureAnonymousUser, signInWithApple, signInWithGoogle, signOutUser,
+  addStation, completeRedirectSignIn, ensureAnonymousUser, signInWithApple, signInWithGoogle, signOutUser,
   submitReview, subscribeToReviews, subscribeToStations, type LivePlace, type StationReview,
 } from "./lib/firestore";
 
@@ -88,9 +88,26 @@ export default function Home() {
     window.addEventListener("beforeinstallprompt", installHandler);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
     initializeFirebaseAnalytics().catch(() => {});
-    const stopAuth = ensureAnonymousUser(current => { setUser(current); setCloudReady(true); }, () => setCloudReady(false));
+    let stopAuth = () => {};
+    let cancelled = false;
+    const startAuth = async () => {
+      try {
+        const result = await completeRedirectSignIn();
+        if (cancelled) return;
+        if (result?.user) {
+          setUser(result.user);
+          setCloudReady(true);
+          notify(`Signed in as ${result.user.displayName ?? result.user.email ?? "traveler"}`);
+          setPanel("account");
+        }
+      } catch (error) {
+        if (!cancelled) notify(authErrorMessage(error));
+      }
+      if (!cancelled) stopAuth = ensureAnonymousUser(current => { setUser(current); setCloudReady(true); }, () => setCloudReady(false));
+    };
+    startAuth();
     const stopStations = subscribeToStations(items => { setPlaces(items); setLoadingPlaces(false); setCloudReady(true); }, () => { setLoadingPlaces(false); setCloudReady(false); });
-    return () => { window.removeEventListener("beforeinstallprompt", installHandler); stopAuth(); stopStations(); };
+    return () => { cancelled = true; window.removeEventListener("beforeinstallprompt", installHandler); stopAuth(); stopStations(); };
   }, []);
 
   useEffect(() => {
@@ -167,7 +184,11 @@ export default function Home() {
   };
   const authenticate = async (provider: "google" | "apple") => {
     setBusy(true);
-    try { const result = provider === "google" ? await signInWithGoogle() : await signInWithApple(); setUser(result.user); notify(`Signed in as ${result.user.displayName ?? result.user.email ?? "traveler"}`); setPanel("account"); }
+    try {
+      const result = provider === "google" ? await signInWithGoogle() : await signInWithApple();
+      if (!result) return;
+      setUser(result.user); notify(`Signed in as ${result.user.displayName ?? result.user.email ?? "traveler"}`); setPanel("account");
+    }
     catch (error) { notify(authErrorMessage(error)); }
     finally { setBusy(false); }
   };

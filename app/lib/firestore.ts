@@ -1,5 +1,5 @@
 import { addDoc, collection, limit, onSnapshot, query, serverTimestamp, where } from "firebase/firestore";
-import { GoogleAuthProvider, OAuthProvider, onAuthStateChanged, signInAnonymously, signInWithPopup, signOut, type User } from "firebase/auth";
+import { GoogleAuthProvider, OAuthProvider, getRedirectResult, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut, type User } from "firebase/auth";
 import { auth, db } from "./firebase";
 
 export type LivePlace = {
@@ -77,7 +77,24 @@ export function ensureAnonymousUser(onUser: (user: User) => void, onError: (erro
 }
 
 export const signInWithGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
-export const signInWithApple = () => signInWithPopup(auth, new OAuthProvider("apple.com"));
+export const completeRedirectSignIn = () => getRedirectResult(auth);
+export const signInWithApple = async () => {
+  const provider = new OAuthProvider("apple.com");
+  provider.addScope("name");
+  provider.addScope("email");
+
+  const prefersRedirect = typeof window !== "undefined" && (
+    window.matchMedia("(pointer: coarse)").matches ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  );
+
+  if (prefersRedirect) {
+    await signInWithRedirect(auth, provider);
+    return null;
+  }
+
+  return signInWithPopup(auth, provider);
+};
 export const signOutUser = () => signOut(auth).then(() => signInAnonymously(auth));
 
 export async function submitReview(input: {
