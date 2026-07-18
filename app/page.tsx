@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
@@ -159,11 +160,11 @@ export default function Home() {
 
   return <main className="app-shell">
     <header className="topbar">
-      <button className="brand" onClick={() => setPanel("none")}><span className="brandmark"><span>R</span><b>✓</b></span><span>Restroom <strong>Report</strong></span></button>
+      <button className="brand" onClick={() => setPanel("none")}><span className="brandmark"><Image src="/app-icon-192.png" alt="" width={42} height={42} priority/></span><span>Restroom <strong>Report</strong></span></button>
       <nav><button className="active" onClick={() => setPanel("none")}>Explore</button><button onClick={() => setPanel("reports")}>My reports <span className="report-count">{myReports.length}</span></button><button className="avatar" onClick={() => setPanel("account")} aria-label="Account"><Icon name="user"/></button></nav>
     </header>
 
-    <section className="map-area">
+    <section className={`map-area ${selected ? "has-selection" : "no-selection"}`}>
       <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onCenterChange={setMapCenter}/>
       <form className="searchbox" onSubmit={event => { event.preventDefault(); searchLocation(); }}><Icon name="search"/><input aria-label="Search restrooms, places or cities" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search restrooms, places or cities"/><button type="submit" disabled={busy}>{busy ? "…" : "Go"}</button></form>
       <div className="filters" aria-label="Restroom categories">{TYPES.map(type => <button key={type} className={filter === type ? "selected" : ""} onClick={() => setFilter(type)}>{type}</button>)}</div>
@@ -211,7 +212,7 @@ export default function Home() {
 
       {panel === "account" && <><p className="eyebrow">Account</p><h2>{user?.isAnonymous ? "Travel as a guest" : user?.displayName ?? "Your profile"}</h2><div className="profile-card"><span className="profile-avatar">{user?.isAnonymous ? "G" : (user?.displayName?.[0] ?? user?.email?.[0] ?? "R").toUpperCase()}</span><div><strong>{user?.isAnonymous ? "Guest explorer" : user?.displayName ?? user?.email}</strong><small>{user?.isAnonymous ? "Ratings work now; sign in to keep them across devices." : user?.email}</small></div></div>{user?.isAnonymous ? <div className="auth-actions"><button onClick={() => authenticate("google")} disabled={busy}><b>G</b>Continue with Google</button><button onClick={() => authenticate("apple")} disabled={busy}><b>●</b>Continue with Apple</button></div> : <button className="signout" onClick={async () => { await signOutUser(); setPanel("none"); notify("Signed out"); }}>Sign out</button>}<div className="account-links"><button onClick={() => setPanel("reports")}><span>My reports</span><Icon name="chevron"/></button><button onClick={installApp}><span>Install web app</span><Icon name="chevron"/></button><Link href="/support"><span>Help & support</span><Icon name="chevron"/></Link><Link href="/privacy"><span>Privacy policy</span><Icon name="chevron"/></Link><Link href="/terms"><span>Terms of use</span><Icon name="chevron"/></Link></div><div className={`connection-card ${cloudReady ? "online" : ""}`}>● {cloudReady ? "Connected to live Restroom Report data" : "Connecting to Firebase"}</div></>}
 
-      {panel === "install" && <><p className="eyebrow">One-tap access</p><h2>Install Restroom Report</h2><div className="install-art"><span className="brandmark"><span>R</span><b>✓</b></span></div><p className="muted">Add Restroom Report to your home screen. It opens full-screen and feels like an app—no app store required.</p><ol className="install-steps"><li><span>1</span>Tap your browser’s <strong>Share</strong> button.</li><li><span>2</span>Choose <strong>Add to Home Screen</strong> or <strong>Install app</strong>.</li><li><span>3</span>Tap <strong>Add</strong> or <strong>Install</strong>.</li></ol><button className="submit" onClick={() => setPanel("none")}>Got it</button></>}
+      {panel === "install" && <><p className="eyebrow">One-tap access</p><h2>Install Restroom Report</h2><div className="install-art"><span className="brandmark"><Image src="/app-icon-192.png" alt="Restroom Report app icon" width={78} height={78}/></span></div><p className="muted">Add Restroom Report to your home screen. It opens full-screen and feels like an app—no app store required.</p><ol className="install-steps"><li><span>1</span>Tap your browser’s <strong>Share</strong> button.</li><li><span>2</span>Choose <strong>Add to Home Screen</strong> or <strong>Install app</strong>.</li><li><span>3</span>Tap <strong>Add</strong> or <strong>Install</strong>.</li></ol><button className="submit" onClick={() => setPanel("none")}>Got it</button></>}
     </section></div>}
     {toast && <div className="toast" role="status"><Icon name="check"/>{toast}</div>}
   </main>;
