@@ -1,4 +1,4 @@
-import { addDoc, collection, limit, onSnapshot, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, doc, limit, onSnapshot, query, serverTimestamp, where } from "firebase/firestore";
 import { GoogleAuthProvider, OAuthProvider, getRedirectResult, onAuthStateChanged, signInAnonymously, signInWithCredential, signInWithPopup, signOut, type User, type UserCredential } from "firebase/auth";
 import { auth, db } from "./firebase";
 
@@ -109,6 +109,37 @@ export type StationReview = {
   accessibilityAvailable: boolean; babyChangingAvailable: boolean; crowdLevel: string;
 };
 
+export type UserProfile = {
+  id: string;
+  displayName: string;
+  email: string;
+  photoURL: string;
+  reviewCount: number;
+  photoCount: number;
+  reputation: number;
+  level: string | number;
+  trustedTravelerLevel: string | number;
+  corroboratedContributionCount: number;
+  favoriteStationIds: string[];
+  avoidedStationIds: string[];
+  moderationStatus: string;
+};
+
+export type UserReview = StationReview & {
+  stationId: string;
+  userId: string;
+};
+
+export type UserIssueReport = {
+  id: string;
+  stationId: string;
+  reporterUserId: string;
+  issueType: string;
+  comment: string;
+  status: string;
+  createdAt: Date | null;
+};
+
 const displayType = (raw: string) => ({ gasStation: "Gas station", travelCenter: "Truck stop", truckStop: "Truck stop", restArea: "Rest area", fastFood: "Fast food" }[raw] ?? "Gas station");
 const storageType = (label: string) => ({ "Gas station": "gasStation", "Truck stop": "truckStop", "Rest area": "restArea", "Fast food": "fastFood" }[label] ?? "gasStation");
 const colorFor = (type: string) => ({ "Gas station": "blue", "Truck stop": "orange", "Rest area": "teal", "Fast food": "rose" }[type] ?? "blue");
@@ -160,6 +191,76 @@ export function subscribeToReviews(stationId: string, onReviews: (reviews: Stati
       } satisfies StationReview;
     }).sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
     onReviews(reviews);
+  }, error => onError(error));
+}
+
+export function subscribeToUserProfile(userId: string, onProfile: (profile: UserProfile | null) => void, onError: (error: Error) => void) {
+  return onSnapshot(doc(db, "users", userId), snapshot => {
+    if (!snapshot.exists()) {
+      onProfile(null);
+      return;
+    }
+    const data = snapshot.data();
+    onProfile({
+      id: snapshot.id,
+      displayName: String(data.displayName ?? ""),
+      email: String(data.email ?? ""),
+      photoURL: String(data.photoURL ?? ""),
+      reviewCount: Number(data.reviewCount ?? 0),
+      photoCount: Number(data.photoCount ?? 0),
+      reputation: Number(data.reputation ?? 0),
+      level: data.level ?? "",
+      trustedTravelerLevel: data.trustedTravelerLevel ?? "",
+      corroboratedContributionCount: Number(data.corroboratedContributionCount ?? 0),
+      favoriteStationIds: Array.isArray(data.favoriteStationIds) ? data.favoriteStationIds.map(String) : [],
+      avoidedStationIds: Array.isArray(data.avoidedStationIds) ? data.avoidedStationIds.map(String) : [],
+      moderationStatus: String(data.moderationStatus ?? ""),
+    });
+  }, error => onError(error));
+}
+
+export function subscribeToUserReviews(userId: string, onReviews: (reviews: UserReview[]) => void, onError: (error: Error) => void) {
+  const reviewsQuery = query(collection(db, "reviews"), where("userId", "==", userId), limit(250));
+  return onSnapshot(reviewsQuery, snapshot => {
+    const reviews = snapshot.docs.map(reviewDoc => {
+      const data = reviewDoc.data();
+      return {
+        id: reviewDoc.id,
+        stationId: String(data.stationId ?? ""),
+        userId: String(data.userId ?? ""),
+        cleanlinessRating: Number(data.cleanlinessRating ?? 0),
+        odorRating: Number(data.odorRating ?? 0),
+        comment: String(data.comment ?? ""),
+        createdAt: data.createdAt?.toDate?.() ?? null,
+        feltSafe: Boolean(data.feltSafe),
+        soapAvailable: Boolean(data.soapAvailable),
+        toiletPaperAvailable: Boolean(data.toiletPaperAvailable),
+        sinkWorking: Boolean(data.sinkWorking),
+        accessibilityAvailable: Boolean(data.accessibilityAvailable),
+        babyChangingAvailable: Boolean(data.babyChangingAvailable),
+        crowdLevel: String(data.crowdLevel ?? "unknown"),
+      } satisfies UserReview;
+    }).sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+    onReviews(reviews);
+  }, error => onError(error));
+}
+
+export function subscribeToUserIssueReports(userId: string, onReports: (reports: UserIssueReport[]) => void, onError: (error: Error) => void) {
+  const reportsQuery = query(collection(db, "reports"), where("reporterUserId", "==", userId), limit(250));
+  return onSnapshot(reportsQuery, snapshot => {
+    const reports = snapshot.docs.map(reportDoc => {
+      const data = reportDoc.data();
+      return {
+        id: reportDoc.id,
+        stationId: String(data.stationId ?? ""),
+        reporterUserId: String(data.reporterUserId ?? ""),
+        issueType: readable(data.issueType),
+        comment: String(data.comment ?? ""),
+        status: readable(data.status),
+        createdAt: data.createdAt?.toDate?.() ?? null,
+      } satisfies UserIssueReport;
+    }).sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+    onReports(reports);
   }, error => onError(error));
 }
 

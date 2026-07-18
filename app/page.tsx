@@ -8,13 +8,18 @@ import type { User } from "firebase/auth";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
 import {
   addStation, completeRedirectSignIn, ensureAnonymousUser, preloadAppleSignIn, signInWithApple, signInWithGoogle, signOutUser,
-  submitReview, subscribeToReviews, subscribeToStations, type LivePlace, type StationReview,
+  submitReview, subscribeToReviews, subscribeToStations, subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews,
+  type LivePlace, type StationReview, type UserIssueReport, type UserProfile, type UserReview,
 } from "./lib/firestore";
 
 const RestroomMap = dynamic(() => import("./components/RestroomMap"), { ssr: false });
 type Coordinates = { latitude: number; longitude: number };
 type Panel = "none" | "list" | "detail" | "rate" | "add" | "reports" | "account" | "install";
 type DeferredInstall = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
+type AccountData = {
+  userId: string; profile: UserProfile | null; reviews: UserReview[]; issueReports: UserIssueReport[];
+  profileReady: boolean; reviewsReady: boolean; reportsReady: boolean; error: string;
+};
 
 const TYPES = ["All", "Gas station", "Truck stop", "Rest area", "Fast food"];
 const CHECKS = [
@@ -59,6 +64,17 @@ const authErrorMessage = (error: unknown) => {
   return messages[code] ?? `Sign-in could not be completed${code ? ` (${code.replace("auth/", "")})` : ""}.`;
 };
 
+const friendlyStatus = (value: string | number | null | undefined, fallback = "Traveler") => {
+  const text = String(value ?? "").trim();
+  if (!text) return fallback;
+  if (/^\d+$/.test(text)) return `Level ${text}`;
+  return text.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, character => character.toUpperCase());
+};
+
+const emptyAccountData = (userId = ""): AccountData => ({
+  userId, profile: null, reviews: [], issueReports: [], profileReady: false, reviewsReady: false, reportsReady: false, error: "",
+});
+
 export default function Home() {
   const [places, setPlaces] = useState<LivePlace[]>([]);
   const [selected, setSelected] = useState<LivePlace | null>(null);
@@ -74,10 +90,7 @@ export default function Home() {
   const [loadingPlaces, setLoadingPlaces] = useState(true);
   const [toast, setToast] = useState("");
   const [reviews, setReviews] = useState<StationReview[]>([]);
-  const [myReports, setMyReports] = useState<Array<{ stationId: string; place: string; rating: number; date: string }>>(() => {
-    if (typeof window === "undefined") return [];
-    try { return JSON.parse(localStorage.getItem("rr-reports") ?? "[]"); } catch { return []; }
-  });
+  const [accountData, setAccountData] = useState<AccountData>(() => emptyAccountData());
   const [installPrompt, setInstallPrompt] = useState<DeferredInstall | null>(null);
   const [isStandalone] = useState(() => typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches);
   const [busy, setBusy] = useState(false);
@@ -122,12 +135,52 @@ export default function Home() {
     return subscribeToReviews(selected.id, setReviews, () => setReviews([]));
   }, [selected]);
 
+  const currentUserId = user?.uid ?? "";
+  useEffect(() => {
+    if (!currentUserId) return;
+    const updateAccount = (patch: Partial<AccountData>) => setAccountData(current => ({
+      ...(current.userId === currentUserId ? current : emptyAccountData(currentUserId)), ...patch, userId: currentUserId,
+    }));
+    const failed = () => updateAccount({
+      error: "Some account history could not be loaded from Firebase.", profileReady: true, reviewsReady: true, reportsReady: true,
+    });
+    const stopProfile = subscribeToUserProfile(currentUserId, profile => updateAccount({ profile, profileReady: true }), failed);
+    const stopReviews = subscribeToUserReviews(currentUserId, reviews => updateAccount({ reviews, reviewsReady: true }), failed);
+    const stopReports = subscribeToUserIssueReports(currentUserId, issueReports => updateAccount({ issueReports, reportsReady: true }), failed);
+    return () => { stopProfile(); stopReviews(); stopReports(); };
+  }, [currentUserId]);
+
+  const activeAccount = accountData.userId === currentUserId ? accountData : emptyAccountData(currentUserId);
+  const userProfile = activeAccount.profile;
+  const myReviews = activeAccount.reviews;
+  const myIssueReports = activeAccount.issueReports;
+  const accountLoading = Boolean(currentUserId) && !(activeAccount.profileReady && activeAccount.reviewsReady && activeAccount.reportsReady);
+  const accountSyncError = activeAccount.error;
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const result = places.filter(place => (filter === "All" || place.type === filter) && (!needle || `${place.name} ${place.address} ${place.city} ${place.state} ${place.type}`.toLowerCase().includes(needle)));
     const origin = userCoords ?? mapCenter;
     return [...result].sort((a, b) => milesBetween(origin, a) - milesBetween(origin, b));
   }, [places, filter, query, userCoords, mapCenter]);
+
+  const stationNames = useMemo(() => new Map(places.map(place => [place.id, place.name])), [places]);
+  const myContributions = useMemo(() => [
+    ...myReviews.map(review => ({
+      id: `review-${review.id}`, kind: "review" as const, stationId: review.stationId,
+      title: stationNames.get(review.stationId) ?? "Restroom rating", detail: `${review.cleanlinessRating}/5 cleanliness`,
+      status: "Submitted", createdAt: review.createdAt,
+    })),
+    ...myIssueReports.map(report => ({
+      id: `issue-${report.id}`, kind: "issue" as const, stationId: report.stationId,
+      title: stationNames.get(report.stationId) ?? "Restroom issue", detail: report.issueType,
+      status: report.status || "Submitted", createdAt: report.createdAt,
+    })),
+  ].sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0)), [myReviews, myIssueReports, stationNames]);
+
+  const profileName = userProfile?.displayName || user?.displayName || (user?.isAnonymous ? "Guest explorer" : "Apple User");
+  const profileEmail = userProfile?.email || user?.email || "Private Apple account";
+  const travelerStatus = friendlyStatus(userProfile?.trustedTravelerLevel || userProfile?.level, "New traveler");
 
   const selectPlace = (place: LivePlace, showDetail = false) => { setSelected(place); setFocus({ latitude: place.latitude, longitude: place.longitude }); if (showDetail) setPanel("detail"); };
   const findMe = () => {
@@ -161,8 +214,7 @@ export default function Home() {
     setBusy(true);
     try {
       await submitReview({ stationId: selected.id, userId: user.uid, cleanlinessRating: rating, odorRating: odor, crowdLevel: crowd, comment, answers: answers as Record<string, boolean> });
-      const next = [{ stationId: selected.id, place: selected.name, rating, date: new Date().toISOString() }, ...myReports];
-      setMyReports(next); localStorage.setItem("rr-reports", JSON.stringify(next)); setSubmitted(true);
+      setSubmitted(true);
     } catch { notify("Your rating could not be submitted. Please try again."); }
     finally { setBusy(false); }
   };
@@ -202,7 +254,7 @@ export default function Home() {
   return <main className="app-shell">
     <header className="topbar">
       <button className="brand" onClick={() => setPanel("none")}><span className="brandmark"><Image src="/app-icon-192.png" alt="" width={42} height={42} priority/></span><span>Restroom <strong>Report</strong></span></button>
-      <nav><button className="active" onClick={() => setPanel("none")}>Explore</button><button onClick={() => setPanel("reports")}>My reports <span className="report-count">{myReports.length}</span></button><button className="avatar" onClick={() => setPanel("account")} aria-label="Account"><Icon name="user"/></button></nav>
+      <nav><button className="active" onClick={() => setPanel("none")}>Explore</button><button onClick={() => setPanel("reports")}>My reports <span className="report-count">{myContributions.length}</span></button><button className="avatar" onClick={() => setPanel("account")} aria-label="Account"><Icon name="user"/></button></nav>
     </header>
 
     <section className={`map-area ${selected ? "has-selection" : "no-selection"}`}>
@@ -249,9 +301,9 @@ export default function Home() {
       {panel === "add" && <><p className="eyebrow">Grow the map</p><h2>Add a restroom</h2><p className="muted">Add public-access locations only. We’ll locate the pin from the address.</p><label className="form-label">Place name<input value={addForm.name} onChange={event => setAddForm(current => ({ ...current, name: event.target.value }))} placeholder="e.g. QuikTrip"/></label><label className="form-label">Full address<input value={addForm.address} onChange={event => setAddForm(current => ({ ...current, address: event.target.value }))} placeholder="Street, city, state"/></label><div className="form-row"><label className="form-label">Type<select value={addForm.type} onChange={event => setAddForm(current => ({ ...current, type: event.target.value }))}>{TYPES.slice(1).map(type => <option key={type}>{type}</option>)}</select></label><label className="form-label">Access<select value={addForm.accessType} onChange={event => setAddForm(current => ({ ...current, accessType: event.target.value }))}><option value="unknown">Not sure</option><option value="public">Public</option><option value="customersOnly">Customers only</option><option value="keyRequired">Key required</option></select></label></div><label className="form-label">Layout<select value={addForm.layoutType} onChange={event => setAddForm(current => ({ ...current, layoutType: event.target.value }))}><option value="unknown">Not sure</option><option value="singleStall">Single stall</option><option value="multiStall">Multiple stalls</option><option value="family">Family restroom</option></select></label><div className="privacy-note"><Icon name="info"/><span>No restroom photos are collected. Address and basic access details only.</span></div><button className="submit" disabled={busy} onClick={saveStation}>{busy ? "Finding address…" : "Add restroom"}</button>
       </>}
 
-      {panel === "reports" && <><p className="eyebrow">Your impact</p><h2>My reports</h2><p className="muted">Your recent contributions from this browser.</p>{myReports.length ? <div className="report-list">{myReports.map((report, index) => <article key={`${report.date}-${index}`}><span>{report.rating}.0</span><div><strong>{report.place}</strong><small>{new Date(report.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</small></div><b>✓ Submitted</b></article>)}</div> : <div className="empty-state"><div>★</div><h3>Your first report matters</h3><p>Rate a restroom to start your contribution history.</p><button className="submit" onClick={() => setPanel("none")}>Explore the map</button></div>}</>}
+      {panel === "reports" && <><p className="eyebrow">Your impact</p><h2>My reports</h2><p className="muted">Ratings and issue reports synced from your Restroom Report account.</p>{accountLoading ? <div className="loading-list">Syncing your contribution history…</div> : myContributions.length ? <div className="report-list">{myContributions.map(contribution => <button key={contribution.id} onClick={() => { const place = places.find(item => item.id === contribution.stationId); if (place) selectPlace(place, true); else notify("This restroom is not currently loaded on the map"); }}><span className={contribution.kind}>{contribution.kind === "review" ? "★" : "!"}</span><div><strong>{contribution.title}</strong><small>{contribution.detail}{contribution.createdAt ? ` • ${contribution.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : ""}</small></div><b>{contribution.status}</b></button>)}</div> : <div className="empty-state"><div>★</div><h3>{user?.isAnonymous ? "Your first report matters" : "No reports found for this account"}</h3><p>{user?.isAnonymous ? "Rate a restroom to start your contribution history." : "If your iPhone has reports, this Apple login may not be resolving to the same Firebase user yet."}</p><button className="submit" onClick={() => setPanel("none")}>Explore the map</button></div>}</>}
 
-      {panel === "account" && <><p className="eyebrow">Account</p><h2>{user?.isAnonymous ? "Travel as a guest" : user?.displayName ?? "Your profile"}</h2><div className="profile-card"><span className="profile-avatar">{user?.isAnonymous ? "G" : (user?.displayName?.[0] ?? user?.email?.[0] ?? "R").toUpperCase()}</span><div><strong>{user?.isAnonymous ? "Guest explorer" : user?.displayName ?? user?.email}</strong><small>{user?.isAnonymous ? "Ratings work now; sign in to keep them across devices." : user?.email}</small></div></div>{user?.isAnonymous ? <div className="auth-actions"><button onClick={() => authenticate("google")} disabled={busy}><b>G</b>Continue with Google</button><button onClick={() => authenticate("apple")} disabled={busy}><b>●</b>Continue with Apple</button></div> : <button className="signout" onClick={async () => { await signOutUser(); setPanel("none"); notify("Signed out"); }}>Sign out</button>}<div className="account-links"><button onClick={() => setPanel("reports")}><span>My reports</span><Icon name="chevron"/></button><button onClick={installApp}><span>Install web app</span><Icon name="chevron"/></button><Link href="/support"><span>Help & support</span><Icon name="chevron"/></Link><Link href="/privacy"><span>Privacy policy</span><Icon name="chevron"/></Link><Link href="/terms"><span>Terms of use</span><Icon name="chevron"/></Link></div><div className={`connection-card ${cloudReady ? "online" : ""}`}>● {cloudReady ? "Connected to live Restroom Report data" : "Connecting to Firebase"}</div></>}
+      {panel === "account" && <><p className="eyebrow">Account</p><h2>{user?.isAnonymous ? "Travel as a guest" : "Your profile"}</h2><div className="profile-card"><span className="profile-avatar">{user?.isAnonymous ? "G" : profileName[0]?.toUpperCase() ?? "R"}</span><div><strong>{profileName}</strong><small>{user?.isAnonymous ? "Ratings work now; sign in to keep them across devices." : profileEmail}</small></div></div>{!user?.isAnonymous && <div className="traveler-card"><div className="traveler-title"><span><small>Traveler status</small><strong>{travelerStatus}</strong></span><b>{myContributions.length} contribution{myContributions.length === 1 ? "" : "s"}</b></div><div className="traveler-stats"><span><strong>{myReviews.length}</strong><small>Ratings</small></span><span><strong>{userProfile?.reputation ?? 0}</strong><small>Reputation</small></span><span><strong>{userProfile?.corroboratedContributionCount ?? 0}</strong><small>Confirmed</small></span><span><strong>{userProfile?.favoriteStationIds.length ?? 0}</strong><small>Saved</small></span></div></div>}{accountLoading && <div className="account-sync loading">Syncing your iPhone account data…</div>}{accountSyncError && <div className="account-sync error"><strong>Account sync needs attention</strong><span>{accountSyncError}</span></div>}{!user?.isAnonymous && !accountLoading && !accountSyncError && !userProfile && <div className="account-sync warning"><strong>Apple sign-in worked, but no matching app profile was found.</strong><span>If your iPhone already has contributions, compare this web user’s Firebase UID with the iPhone user before merging or deleting anything.</span></div>}{user?.isAnonymous ? <div className="auth-actions"><button onClick={() => authenticate("google")} disabled={busy}><b>G</b>Continue with Google</button><button onClick={() => authenticate("apple")} disabled={busy}><b>●</b>Continue with Apple</button></div> : <button className="signout" onClick={async () => { await signOutUser(); setPanel("none"); notify("Signed out"); }}>Sign out</button>}<div className="account-links"><button onClick={() => setPanel("reports")}><span>My reports <small>{myContributions.length}</small></span><Icon name="chevron"/></button><button onClick={installApp}><span>Install web app</span><Icon name="chevron"/></button><Link href="/support"><span>Help & support</span><Icon name="chevron"/></Link><Link href="/privacy"><span>Privacy policy</span><Icon name="chevron"/></Link><Link href="/terms"><span>Terms of use</span><Icon name="chevron"/></Link></div><div className={`connection-card ${cloudReady && !accountSyncError ? "online" : ""}`}>● {cloudReady && !accountSyncError ? "Connected to live Restroom Report account data" : "Connecting to Firebase"}</div></>}
 
       {panel === "install" && <><p className="eyebrow">One-tap access</p><h2>Install Restroom Report</h2><div className="install-art"><span className="brandmark"><Image src="/app-icon-192.png" alt="Restroom Report app icon" width={78} height={78}/></span></div><p className="muted">Add Restroom Report to your home screen. It opens full-screen and feels like an app—no app store required.</p><ol className="install-steps"><li><span>1</span>Tap your browser’s <strong>Share</strong> button.</li><li><span>2</span>Choose <strong>Add to Home Screen</strong> or <strong>Install app</strong>.</li><li><span>3</span>Tap <strong>Add</strong> or <strong>Install</strong>.</li></ol><button className="submit" onClick={() => setPanel("none")}>Got it</button></>}
     </section></div>}
