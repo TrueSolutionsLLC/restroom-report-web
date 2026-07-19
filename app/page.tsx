@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
 import { geocodeAppleMaps, isAppleMapsConfigured, searchAppleMaps } from "./lib/mapkit";
@@ -87,6 +87,9 @@ export default function Home() {
   const [userCoords, setUserCoords] = useState<Coordinates | null>(null);
   const [mapCenter, setMapCenter] = useState<Coordinates>({ latitude: 38.4, longitude: -96.5 });
   const [mapViewport, setMapViewport] = useState<MapViewport | null>(null);
+  const [pendingViewport, setPendingViewport] = useState<MapViewport | null>(null);
+  const [showSearchArea, setShowSearchArea] = useState(false);
+  const viewportRefreshTimer = useRef<number | null>(null);
   const [focus, setFocus] = useState<Coordinates | null>(null);
   const [locationState, setLocationState] = useState<"idle" | "finding" | "found" | "blocked">("idle");
   const [cloudReady, setCloudReady] = useState(false);
@@ -137,18 +140,41 @@ export default function Home() {
     let stopStations = () => {};
     const timer = window.setTimeout(() => {
       stopStations = subscribeToStationsInBounds(mapViewport.bounds, items => {
-        setPlaces(items); setLoadingPlaces(false); setCloudReady(true);
+        setPlaces(items);
+        setSelected(current => current && items.some(item => item.id === current.id) ? current : null);
+        setLoadingPlaces(false); setCloudReady(true);
       }, () => {
         setLoadingPlaces(false); setCloudReady(false); setToast("Locations in this map area could not be refreshed");
       });
-    }, 300);
+    }, 120);
     return () => { window.clearTimeout(timer); stopStations(); };
   }, [mapViewport]);
 
-  const updateMapViewport = useCallback((viewport: MapViewport) => {
+  const commitMapViewport = useCallback((viewport: MapViewport) => {
+    if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
+    viewportRefreshTimer.current = null;
     setMapCenter(viewport.center);
     setMapViewport(viewport);
+    setPendingViewport(null);
+    setShowSearchArea(false);
+    setQuery("");
     setLoadingPlaces(true);
+  }, []);
+
+  const updateMapViewport = useCallback((viewport: MapViewport) => {
+    setMapCenter(viewport.center);
+    setPendingViewport(viewport);
+    setShowSearchArea(true);
+    if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
+    viewportRefreshTimer.current = window.setTimeout(() => commitMapViewport(viewport), 700);
+  }, [commitMapViewport]);
+
+  const searchThisArea = useCallback(() => {
+    if (pendingViewport) commitMapViewport(pendingViewport);
+  }, [commitMapViewport, pendingViewport]);
+
+  useEffect(() => () => {
+    if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
   }, []);
 
   useEffect(() => {
@@ -312,7 +338,9 @@ export default function Home() {
       <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onViewportChange={updateMapViewport}/>
       <form className="searchbox" onSubmit={event => { event.preventDefault(); searchLocation(); }}><Icon name="search"/><input aria-label="Search restrooms, places or cities" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search restrooms, places or cities"/><button type="submit" disabled={busy}>{busy ? "…" : "Go"}</button></form>
       <div className="filters" aria-label="Restroom categories">{TYPES.map(type => <button key={type} className={filter === type ? "selected" : ""} onClick={() => setFilter(type)}>{type}</button>)}</div>
-      <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{loadingPlaces ? "…" : filtered.length}</span> places</button>
+      {showSearchArea
+        ? <button className="search-area-button" onClick={searchThisArea}><Icon name="search"/>Search this area</button>
+        : <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{loadingPlaces ? "…" : filtered.length}</span> places</button>}
       <button className={`locate ${locationState}`} onClick={findMe}><Icon name="locate"/><span>{locationState === "finding" ? "Finding…" : "Near me"}</span></button>
       <button className="add-fab" onClick={() => setPanel("add")}><Icon name="plus"/><span>Add restroom</span></button>
 

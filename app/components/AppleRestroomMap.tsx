@@ -76,6 +76,7 @@ export default function AppleRestroomMap({
   const onSelectRef = useRef(onSelect);
   const onViewportChangeRef = useRef(onViewportChange);
   const unavailableRef = useRef(onUnavailable);
+  const viewportReportTimerRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
@@ -85,6 +86,14 @@ export default function AppleRestroomMap({
   const reportViewport = useCallback(() => {
     if (mapRef.current) onViewportChangeRef.current(viewportForMap(mapRef.current));
   }, []);
+
+  const scheduleViewportReport = useCallback((delay = 180) => {
+    if (viewportReportTimerRef.current !== null) window.clearTimeout(viewportReportTimerRef.current);
+    viewportReportTimerRef.current = window.setTimeout(() => {
+      viewportReportTimerRef.current = null;
+      reportViewport();
+    }, delay);
+  }, [reportViewport]);
 
   useEffect(() => {
     let disposed = false;
@@ -117,7 +126,7 @@ export default function AppleRestroomMap({
         });
         mapRef.current = map;
 
-        const regionChanged = () => reportViewport();
+        const regionChanged = () => scheduleViewportReport(80);
         const annotationSelected = (event: Event) => {
           const annotation = (event as MapAnnotationSelectionEvent).annotation;
           const place = placeByAnnotationRef.current.get(annotation);
@@ -125,12 +134,20 @@ export default function AppleRestroomMap({
         };
         map.addEventListener("region-change-end", regionChanged);
         map.addEventListener("select", annotationSelected);
+        const mapElement = containerRef.current;
+        const interactionEnded = () => scheduleViewportReport();
+        mapElement.addEventListener("pointerup", interactionEnded, { passive: true });
+        mapElement.addEventListener("touchend", interactionEnded, { passive: true });
+        mapElement.addEventListener("wheel", interactionEnded, { passive: true });
         setReady(true);
         window.requestAnimationFrame(reportViewport);
 
         return () => {
           map?.removeEventListener("region-change-end", regionChanged);
           map?.removeEventListener("select", annotationSelected);
+          mapElement.removeEventListener("pointerup", interactionEnded);
+          mapElement.removeEventListener("touchend", interactionEnded);
+          mapElement.removeEventListener("wheel", interactionEnded);
         };
       } catch (error) {
         console.warn("Apple Maps could not start; using the map fallback.", error);
@@ -144,11 +161,12 @@ export default function AppleRestroomMap({
     return () => {
       disposed = true;
       removeListeners?.();
+      if (viewportReportTimerRef.current !== null) window.clearTimeout(viewportReportTimerRef.current);
       mapRef.current = null;
       mapKitRef.current = null;
       map?.destroy();
     };
-  }, [reportViewport]);
+  }, [reportViewport, scheduleViewportReport]);
 
   useEffect(() => {
     const map = mapRef.current;
