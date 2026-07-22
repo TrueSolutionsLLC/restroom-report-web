@@ -101,6 +101,7 @@ export type LivePlace = {
   id: string; name: string; type: string; address: string; score: number | null; reports: number;
   color: string; latitude: number; longitude: number; status: string; detail: string;
   accessType: string; layoutType: string; city: string; state: string;
+  source?: "firestore" | "appleMaps";
 };
 
 export type StationReview = {
@@ -182,6 +183,7 @@ const mapStation = (stationDoc: StationDocument): LivePlace | null => {
     layoutType: readable(data.restroomLayoutType),
     city: String(data.city ?? ""),
     state: String(data.state ?? ""),
+    source: "firestore",
   };
 };
 
@@ -422,13 +424,13 @@ export async function submitReview(input: {
 
 export async function addStation(input: {
   userId: string; name: string; address: string; type: string; latitude: number; longitude: number;
-  city?: string; state?: string; accessType?: string; layoutType?: string;
+  city?: string; state?: string; accessType?: string; layoutType?: string; source?: "userAdded" | "mapkit";
 }) {
   const stationType = storageType(input.type);
   return addDoc(collection(db, "stations"), {
     addedByUserId: input.userId, name: input.name.trim(), brand: input.name.trim(), address: input.address.trim(),
     city: input.city ?? "", state: input.state ?? "", latitude: input.latitude, longitude: input.longitude,
-    locationType: stationType, stationType, source: "userAdded", notes: "",
+    locationType: stationType, stationType, source: input.source ?? "userAdded", notes: "",
     restroomAccessType: input.accessType ?? "unknown", restroomLayoutType: input.layoutType ?? "unknown",
     restroomStatus: "unknown", stallCountBucket: "unknown", amenities: [],
     reviewCount: 0, photoCount: 0, cleanScore: 0, safetyScore: 0,

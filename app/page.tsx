@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
-import { geocodeAppleMaps, isAppleMapsConfigured, searchAppleMaps } from "./lib/mapkit";
+import { geocodeAppleMaps, isAppleMapsConfigured, searchAppleMaps, searchAppleMapsPois, type AppleMapsPoiResult } from "./lib/mapkit";
 import {
   addStation, completeRedirectSignIn, ensureAnonymousUser, preloadAppleSignIn, signInWithApple, signInWithGoogle, signOutUser,
   submitReview, subscribeToReviews, subscribeToStationsInBounds, subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews,
@@ -84,6 +84,42 @@ const viewportKey = (viewport: MapViewport) => [
   viewport.bounds.east,
 ].map(value => value.toFixed(5)).join(":");
 
+const candidatePlace = (place: AppleMapsPoiResult): LivePlace => ({
+  id: place.id,
+  name: place.label,
+  type: place.type,
+  address: place.formattedAddress,
+  score: null,
+  reports: 0,
+  color: ({ "Gas station": "blue", "Truck stop": "orange", "Rest area": "teal", "Fast food": "rose" } as Record<string, string>)[place.type] ?? "blue",
+  latitude: place.latitude,
+  longitude: place.longitude,
+  status: "Status not confirmed",
+  detail: "Discovered with Apple Maps",
+  accessType: "Unknown",
+  layoutType: "Unknown",
+  city: place.city,
+  state: place.state,
+  source: "appleMaps",
+});
+
+const normalizedPlaceText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const mergeMapPlaces = (community: LivePlace[], discovered: LivePlace[]) => {
+  const merged = [...community];
+  discovered.forEach(candidate => {
+    const candidateName = normalizedPlaceText(candidate.name);
+    const duplicate = community.some(saved => {
+      const nearby = milesBetween(saved, candidate) < 0.12;
+      const sameName = candidateName.length > 2 && normalizedPlaceText(saved.name) === candidateName;
+      const sameAddress = candidate.address.length > 5 && normalizedPlaceText(saved.address) === normalizedPlaceText(candidate.address);
+      return nearby && (sameName || sameAddress);
+    });
+    if (!duplicate) merged.push(candidate);
+  });
+  return merged;
+};
+
 export default function Home() {
   const [places, setPlaces] = useState<LivePlace[]>([]);
   const [selected, setSelected] = useState<LivePlace | null>(null);
@@ -99,6 +135,7 @@ export default function Home() {
   const viewportRefreshTimer = useRef<number | null>(null);
   const latestViewport = useRef<MapViewport | null>(null);
   const loadedViewportKey = useRef("");
+  const placeRequestSequence = useRef(0);
   const [focus, setFocus] = useState<Coordinates | null>(null);
   const [locationState, setLocationState] = useState<"idle" | "finding" | "found" | "blocked">("idle");
   const [cloudReady, setCloudReady] = useState(false);
@@ -146,19 +183,57 @@ export default function Home() {
 
   useEffect(() => {
     if (!mapViewport) return;
+    const requestSequence = ++placeRequestSequence.current;
     const requestKey = viewportKey(mapViewport);
-    return subscribeToStationsInBounds(mapViewport.bounds, items => {
-      loadedViewportKey.current = requestKey;
+    const controller = new AbortController();
+    let community: LivePlace[] = [];
+    let discovered: LivePlace[] = [];
+    let communityReady = false;
+    let discoveryReady = !isAppleMapsConfigured();
+
+    const publish = () => {
+      if (requestSequence !== placeRequestSequence.current) return;
+      const items = mergeMapPlaces(community, discovered);
       setPlaces(items);
-      setSelected(current => current && items.some(item => item.id === current.id) ? current : null);
+      setSelected(current => {
+        if (!current) return null;
+        return items.find(item => item.id === current.id)
+          ?? items.find(item => milesBetween(item, current) < 0.12 && normalizedPlaceText(item.name) === normalizedPlaceText(current.name))
+          ?? null;
+      });
+      if (!communityReady || !discoveryReady) return;
+      loadedViewportKey.current = requestKey;
       if (latestViewport.current && viewportKey(latestViewport.current) === requestKey) setViewportIsDirty(false);
       setLoadingPlaces(false);
+    };
+
+    const stopStations = subscribeToStationsInBounds(mapViewport.bounds, items => {
+      community = items;
+      communityReady = true;
       setCloudReady(true);
+      publish();
     }, () => {
-      setLoadingPlaces(false);
+      communityReady = true;
       setCloudReady(false);
-      setToast("Locations in this map area could not be refreshed");
+      setToast("Restroom Report ratings could not be loaded for this area");
+      publish();
     });
+
+    if (!discoveryReady) {
+      searchAppleMapsPois(mapViewport, controller.signal).then(items => {
+        discovered = items.map(candidatePlace);
+      }).catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.warn("Apple Maps place discovery failed.", error);
+        setToast("Nearby Apple Maps places could not be refreshed");
+      }).finally(() => {
+        discoveryReady = true;
+        publish();
+      });
+    }
+
+    publish();
+    return () => { controller.abort(); stopStations(); };
   }, [mapViewport]);
 
   const commitMapViewport = useCallback((viewport: MapViewport) => {
@@ -305,7 +380,24 @@ export default function Home() {
     if (!selected || !user || !ratingComplete) return;
     setBusy(true);
     try {
-      await submitReview({ stationId: selected.id, userId: user.uid, cleanlinessRating: rating, odorRating: odor, crowdLevel: crowd, comment, answers: answers as Record<string, boolean> });
+      let station = selected;
+      if (selected.source === "appleMaps") {
+        const stationDocument = await addStation({
+          userId: user.uid,
+          name: selected.name,
+          address: selected.address,
+          type: selected.type,
+          latitude: selected.latitude,
+          longitude: selected.longitude,
+          city: selected.city,
+          state: selected.state,
+          source: "mapkit",
+        });
+        station = { ...selected, id: stationDocument.id, source: "firestore" };
+        setSelected(station);
+        setPlaces(current => current.map(place => place.id === selected.id ? station : place));
+      }
+      await submitReview({ stationId: station.id, userId: user.uid, cleanlinessRating: rating, odorRating: odor, crowdLevel: crowd, comment, answers: answers as Record<string, boolean> });
       setSubmitted(true);
     } catch { notify("Your rating could not be submitted. Please try again."); }
     finally { setBusy(false); }
