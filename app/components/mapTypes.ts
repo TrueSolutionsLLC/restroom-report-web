@@ -23,4 +23,5 @@ export type RestroomMapProps = {
   userCoords: Coordinates | null;
   focus: Coordinates | null;
   onViewportChange: (viewport: MapViewport) => void;
+  viewportRequest: number;
 };

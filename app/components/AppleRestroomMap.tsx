@@ -5,7 +5,6 @@ import type {
   Annotation,
   MapAnnotationSelectionEvent,
   MapKit,
-  MarkerAnnotation,
 } from "@apple/mapkit-loader";
 import type { LivePlace } from "../lib/firestore";
 import { loadAppleMaps } from "../lib/mapkit";
@@ -19,6 +18,47 @@ const colors: Record<string, string> = {
   teal: "#18a7a1",
   rose: "#ef5470",
 };
+
+function pinLabel(place: LivePlace) {
+  return place.score === null ? "?" : String(place.score);
+}
+
+function updatePinElement(element: HTMLElement, place: LivePlace, active: boolean) {
+  element.className = `apple-restroom-pin${active ? " active" : ""}`;
+  element.style.setProperty("--pin-color", colors[place.color] ?? colors.blue);
+  element.setAttribute("aria-label", `${place.name}, ${place.score === null ? "unrated" : `${place.score} out of 10`}`);
+  const label = element.querySelector<HTMLElement>(".apple-restroom-pin-label");
+  if (label) label.textContent = pinLabel(place);
+}
+
+function restroomPinElement(place: LivePlace, selectPlaceById: (placeId: string) => void) {
+  const element = document.createElement("button");
+  element.type = "button";
+  element.innerHTML = '<span class="apple-restroom-pin-label"></span>';
+  updatePinElement(element, place, false);
+
+  let start: { x: number; y: number; pointerId: number } | null = null;
+  element.addEventListener("pointerdown", event => {
+    start = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+  });
+  element.addEventListener("pointercancel", () => { start = null; });
+  element.addEventListener("pointerup", event => {
+    if (!start || start.pointerId !== event.pointerId) return;
+    const movement = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    start = null;
+    // Preserve map panning while making an intentional short tap deterministic.
+    if (movement > 10) return;
+    event.preventDefault();
+    event.stopPropagation();
+    selectPlaceById(place.id);
+  });
+  element.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    selectPlaceById(place.id);
+  });
+  return element;
+}
 
 const normalizeLongitude = (longitude: number) => ((longitude + 180) % 360 + 360) % 360 - 180;
 
@@ -39,6 +79,13 @@ function viewportForMap(map: AppleMap): MapViewport {
     zoom: Math.max(1, Math.min(20, Math.round(Math.log2(360 / Math.max(span.longitudeDelta, .00001))))),
   };
 }
+
+const viewportIdentity = (viewport: MapViewport) => [
+  viewport.bounds.south,
+  viewport.bounds.north,
+  viewport.bounds.west,
+  viewport.bounds.east,
+].map(value => value.toFixed(5)).join(":");
 
 function userLocationAnnotation(mapkit: MapKit, latitude: number, longitude: number) {
   return new mapkit.Annotation(
@@ -65,26 +112,45 @@ export default function AppleRestroomMap({
   userCoords,
   focus,
   onViewportChange,
+  viewportRequest,
   onUnavailable,
 }: RestroomMapProps & { onUnavailable: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<AppleMap | null>(null);
   const mapKitRef = useRef<MapKit | null>(null);
-  const placeAnnotationsRef = useRef<MarkerAnnotation[]>([]);
-  const placeByAnnotationRef = useRef(new Map<Annotation, LivePlace>());
+  const placeAnnotationsRef = useRef(new Map<string, Annotation>());
+  const placesByIdRef = useRef(new Map<string, LivePlace>());
+  const selectedPlaceIdRef = useRef<string | null>(selected?.id ?? null);
   const userAnnotationRef = useRef<Annotation | null>(null);
   const onSelectRef = useRef(onSelect);
   const onViewportChangeRef = useRef(onViewportChange);
   const unavailableRef = useRef(onUnavailable);
   const viewportReportTimerRef = useRef<number | null>(null);
+  const viewportPollRef = useRef<number | null>(null);
+  const lastReportedViewportRef = useRef("");
+  const lastSelectionRef = useRef({ placeId: "", time: 0 });
   const [ready, setReady] = useState(false);
 
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
   useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
   useEffect(() => { unavailableRef.current = onUnavailable; }, [onUnavailable]);
 
-  const reportViewport = useCallback(() => {
-    if (mapRef.current) onViewportChangeRef.current(viewportForMap(mapRef.current));
+  const selectPlaceById = useCallback((placeId: string) => {
+    const place = placesByIdRef.current.get(placeId);
+    if (!place) return;
+    const now = performance.now();
+    if (lastSelectionRef.current.placeId === placeId && now - lastSelectionRef.current.time < 100) return;
+    lastSelectionRef.current = { placeId, time: now };
+    onSelectRef.current(place);
+  }, []);
+
+  const reportViewport = useCallback((force = false) => {
+    if (!mapRef.current) return;
+    const viewport = viewportForMap(mapRef.current);
+    const identity = viewportIdentity(viewport);
+    if (!force && identity === lastReportedViewportRef.current) return;
+    lastReportedViewportRef.current = identity;
+    onViewportChangeRef.current(viewport);
   }, []);
 
   const scheduleViewportReport = useCallback((delay = 180) => {
@@ -126,21 +192,24 @@ export default function AppleRestroomMap({
         });
         mapRef.current = map;
 
-        const regionChanged = () => scheduleViewportReport(80);
+        const regionChanged = () => scheduleViewportReport(0);
         const annotationSelected = (event: Event) => {
           const annotation = (event as MapAnnotationSelectionEvent).annotation;
-          const place = placeByAnnotationRef.current.get(annotation);
-          if (place) onSelectRef.current(place);
+          const placeId = String((annotation.data as { placeId?: unknown } | undefined)?.placeId ?? "");
+          if (placeId) selectPlaceById(placeId);
         };
         map.addEventListener("region-change-end", regionChanged);
         map.addEventListener("select", annotationSelected);
         const mapElement = containerRef.current;
-        const interactionEnded = () => scheduleViewportReport();
+        const interactionEnded = () => scheduleViewportReport(40);
         mapElement.addEventListener("pointerup", interactionEnded, { passive: true });
         mapElement.addEventListener("touchend", interactionEnded, { passive: true });
         mapElement.addEventListener("wheel", interactionEnded, { passive: true });
+        // MapKit's region event is the primary signal. The small watchdog catches
+        // WebKit gesture/zoom paths that don't consistently emit a final event.
+        viewportPollRef.current = window.setInterval(() => reportViewport(), 180);
         setReady(true);
-        window.requestAnimationFrame(reportViewport);
+        window.requestAnimationFrame(() => reportViewport(true));
 
         return () => {
           map?.removeEventListener("region-change-end", regionChanged);
@@ -162,52 +231,95 @@ export default function AppleRestroomMap({
       disposed = true;
       removeListeners?.();
       if (viewportReportTimerRef.current !== null) window.clearTimeout(viewportReportTimerRef.current);
+      if (viewportPollRef.current !== null) window.clearInterval(viewportPollRef.current);
       mapRef.current = null;
       mapKitRef.current = null;
       map?.destroy();
     };
-  }, [reportViewport, scheduleViewportReport]);
+  }, [reportViewport, scheduleViewportReport, selectPlaceById]);
 
   useEffect(() => {
     const map = mapRef.current;
     const mapkit = mapKitRef.current;
     if (!map || !mapkit || !ready) return;
 
-    if (placeAnnotationsRef.current.length) map.removeAnnotations(placeAnnotationsRef.current);
-    placeAnnotationsRef.current = [];
-    placeByAnnotationRef.current.clear();
-
-    const annotations = places.map(place => {
-      const active = selected?.id === place.id;
-      const annotation = new mapkit.MarkerAnnotation(
-        { latitude: place.latitude, longitude: place.longitude },
-        {
-          title: place.name,
-          subtitle: place.address || place.type,
-          accessibilityLabel: `${place.name}, ${place.score === null ? "unrated" : `${place.score} out of 10`}`,
-          color: colors[place.color] ?? colors.blue,
-          glyphColor: "#ffffff",
-          glyphText: place.score === null ? "?" : String(place.score),
-          titleVisibility: mapkit.FeatureVisibility.Hidden,
-          subtitleVisibility: mapkit.FeatureVisibility.Hidden,
-          calloutEnabled: false,
-          animates: true,
-          selected: active,
-          displayPriority: active
-            ? mapkit.AnnotationDisplayPriority.Required
-            : mapkit.AnnotationDisplayPriority.High,
-          collisionMode: mapkit.AnnotationCollisionMode.Circle,
-          data: { placeId: place.id },
-        },
-      );
-      placeByAnnotationRef.current.set(annotation, place);
-      return annotation;
+    const currentIds = new Set(places.map(place => place.id));
+    const removed: Annotation[] = [];
+    placeAnnotationsRef.current.forEach((annotation, placeId) => {
+      if (!currentIds.has(placeId)) {
+        removed.push(annotation);
+        placeAnnotationsRef.current.delete(placeId);
+      }
     });
+    if (removed.length) map.removeAnnotations(removed);
 
-    placeAnnotationsRef.current = annotations;
-    if (annotations.length) map.addAnnotations(annotations);
-    map.selectedAnnotation = annotations.find((_, index) => places[index]?.id === selected?.id) ?? null;
-  }, [places, ready, selected?.id]);
+    placesByIdRef.current = new Map(places.map(place => [place.id, place]));
+    const added: Annotation[] = [];
+    places.forEach(place => {
+      const active = selectedPlaceIdRef.current === place.id;
+      let annotation = placeAnnotationsRef.current.get(place.id);
+      if (!annotation) {
+        annotation = new mapkit.Annotation(
+          { latitude: place.latitude, longitude: place.longitude },
+          () => restroomPinElement(place, selectPlaceById),
+          {
+            calloutEnabled: false,
+            enabled: true,
+            animates: false,
+            size: { width: 46, height: 54 },
+            collisionMode: mapkit.AnnotationCollisionMode.Circle,
+            data: { placeId: place.id },
+          },
+        );
+        annotation.addEventListener("select", () => selectPlaceById(place.id));
+        placeAnnotationsRef.current.set(place.id, annotation);
+        added.push(annotation);
+      }
+
+      // Keep annotation identity stable. Removing and recreating the selected
+      // marker makes MapKit deselect it and was swallowing pin taps.
+      annotation.coordinate = { latitude: place.latitude, longitude: place.longitude };
+      annotation.title = place.name;
+      annotation.subtitle = place.address || place.type;
+      annotation.accessibilityLabel = `${place.name}, ${place.score === null ? "unrated" : `${place.score} out of 10`}`;
+      annotation.data = { placeId: place.id };
+      annotation.enabled = true;
+      updatePinElement(annotation.element, place, active);
+      annotation.displayPriority = active
+        ? mapkit.AnnotationDisplayPriority.Required
+        : mapkit.AnnotationDisplayPriority.High;
+    });
+    if (added.length) map.addAnnotations(added);
+  }, [places, ready, selectPlaceById]);
+
+  useEffect(() => {
+    if (!ready || viewportRequest < 1) return;
+    // The parent increments this value for an explicit Search this area action.
+    // Read the MapKit region now instead of trusting a possibly stale event.
+    reportViewport(true);
+  }, [ready, reportViewport, viewportRequest]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const mapkit = mapKitRef.current;
+    if (!map || !mapkit || !ready) return;
+    const previousId = selectedPlaceIdRef.current;
+    selectedPlaceIdRef.current = selected?.id ?? null;
+    if (previousId) {
+      const previous = placeAnnotationsRef.current.get(previousId);
+      if (previous) {
+        previous.displayPriority = mapkit.AnnotationDisplayPriority.High;
+        const previousPlace = placesByIdRef.current.get(previousId);
+        if (previousPlace) updatePinElement(previous.element, previousPlace, false);
+      }
+    }
+    const annotation = selected?.id ? placeAnnotationsRef.current.get(selected.id) ?? null : null;
+    if (annotation) {
+      annotation.displayPriority = mapkit.AnnotationDisplayPriority.Required;
+      updatePinElement(annotation.element, selected!, true);
+    }
+    if (map.selectedAnnotation !== annotation) map.selectedAnnotation = annotation;
+  }, [ready, selected]);
 
   useEffect(() => {
     const map = mapRef.current;

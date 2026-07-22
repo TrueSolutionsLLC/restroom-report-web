@@ -16,10 +16,11 @@ const colors: Record<string, string> = {
 
 const normalizeLongitude = (longitude: number) => ((longitude + 180) % 360 + 360) % 360 - 180;
 
-function Controller({ userCoords, focus, onViewportChange }: {
+function Controller({ userCoords, focus, onViewportChange, viewportRequest }: {
   userCoords: Coordinates | null;
   focus: Coordinates | null;
   onViewportChange: (viewport: MapViewport) => void;
+  viewportRequest: number;
 }) {
   const map = useMap();
   const reportViewport = useCallback(() => {
@@ -44,6 +45,9 @@ function Controller({ userCoords, focus, onViewportChange }: {
   }, [map, userCoords, focus]);
 
   useEffect(() => { reportViewport(); }, [reportViewport]);
+  useEffect(() => {
+    if (viewportRequest > 0) reportViewport();
+  }, [reportViewport, viewportRequest]);
   useMapEvents({ moveend: reportViewport });
   return null;
 }
@@ -58,7 +62,7 @@ function markerIcon(place: LivePlace, active: boolean) {
   });
 }
 
-export default function LeafletRestroomMap({ places, selected, onSelect, userCoords, focus, onViewportChange }: RestroomMapProps) {
+export default function LeafletRestroomMap({ places, selected, onSelect, userCoords, focus, onViewportChange, viewportRequest }: RestroomMapProps) {
   const icons = useMemo(
     () => new Map(places.map(place => [place.id, markerIcon(place, selected?.id === place.id)])),
     [places, selected?.id],
@@ -66,7 +70,7 @@ export default function LeafletRestroomMap({ places, selected, onSelect, userCoo
 
   return <MapContainer center={[38.4, -96.5]} zoom={4} minZoom={3} maxZoom={19} zoomControl={false} className="real-map leaflet-map">
     <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-    <Controller userCoords={userCoords} focus={focus} onViewportChange={onViewportChange} />
+    <Controller userCoords={userCoords} focus={focus} onViewportChange={onViewportChange} viewportRequest={viewportRequest} />
     {places.map(place => <Marker
       key={place.id}
       position={[place.latitude, place.longitude]}

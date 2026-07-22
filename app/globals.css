@@ -19,7 +19,8 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 @media(max-width:390px){.traveler-title{align-items:flex-start;flex-direction:column}.traveler-title>b{align-self:flex-start}.traveler-stats{grid-template-columns:repeat(2,1fr)}.report-list>button b{display:none}}
 
 /* Apple Maps web experience */
-.apple-map{overflow:hidden}.apple-map-loading{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(145deg,#e8f0ed,#dce8e3);color:#526980;font-size:13px;font-weight:760}.apple-map-spinner{width:22px;height:22px;border:3px solid rgba(10,132,255,.2);border-top-color:var(--blue);border-radius:50%;animation:appleMapSpin .7s linear infinite}.apple-user-location{width:34px;height:34px;border-radius:50%;background:rgba(10,132,255,.17);display:grid;place-items:center;filter:drop-shadow(0 4px 8px rgba(0,74,153,.25))}.apple-user-location i{display:block;width:17px;height:17px;border-radius:50%;background:var(--blue);border:4px solid white;box-shadow:0 1px 5px rgba(0,75,160,.45)}@keyframes appleMapSpin{to{transform:rotate(360deg)}}
+.apple-map{overflow:hidden;touch-action:auto}.apple-map-loading{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(145deg,#e8f0ed,#dce8e3);color:#526980;font-size:13px;font-weight:760}.apple-map-spinner{width:22px;height:22px;border:3px solid rgba(10,132,255,.2);border-top-color:var(--blue);border-radius:50%;animation:appleMapSpin .7s linear infinite}.apple-user-location{width:34px;height:34px;border-radius:50%;background:rgba(10,132,255,.17);display:grid;place-items:center;filter:drop-shadow(0 4px 8px rgba(0,74,153,.25))}.apple-user-location i{display:block;width:17px;height:17px;border-radius:50%;background:var(--blue);border:4px solid white;box-shadow:0 1px 5px rgba(0,75,160,.45)}@keyframes appleMapSpin{to{transform:rotate(360deg)}}
+.apple-restroom-pin{--pin-color:#0a84ff;width:46px;height:46px;padding:0;border:3px solid #fff;border-radius:50% 50% 50% 10px;background:var(--pin-color);color:#fff;display:grid;place-items:center;transform:rotate(-45deg);transform-origin:center;box-shadow:0 5px 13px rgba(18,48,76,.34);pointer-events:auto!important;touch-action:manipulation;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .14s ease,filter .14s ease;outline:none}.apple-restroom-pin-label{display:block;transform:rotate(45deg);font-size:13px;line-height:1;font-weight:900;text-shadow:0 1px 1px rgba(0,0,0,.18)}.apple-restroom-pin:hover,.apple-restroom-pin:focus-visible{filter:brightness(1.08);box-shadow:0 6px 17px rgba(18,48,76,.42)}.apple-restroom-pin.active{transform:rotate(-45deg) scale(1.16);z-index:2;box-shadow:0 7px 20px rgba(18,48,76,.46)}
 .search-area-button{position:absolute;z-index:10;left:50%;top:140px;transform:translateX(-50%);border:1px solid rgba(255,255,255,.9);background:var(--ink);color:white;border-radius:99px;padding:10px 16px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;box-shadow:0 9px 26px rgba(17,43,69,.28);white-space:nowrap}.search-area-button svg{width:18px;height:18px}
 
 /* iPhone-like spacing and safe-area behavior */
@@ -53,4 +54,23 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
   .searchbox{height:52px}.filters{top:72px}.nearby-pill,.search-area-button{top:120px}
   .place-card{padding:12px 14px}.card-main{margin:8px 0 10px}.actions button{min-height:44px}
   .has-selection .locate{bottom:270px}.has-selection .add-fab{bottom:210px}
+}
+
+/* Durable, non-overlapping map refresh controls */
+.map-status-controls{position:absolute;z-index:10;left:50%;top:140px;transform:translateX(-50%);display:flex;flex-direction:row;align-items:center;justify-content:center;gap:7px;max-width:calc(100% - 24px);pointer-events:none}
+.map-status-controls .nearby-pill,.map-status-controls .search-area-button{position:static;left:auto;right:auto;top:auto;transform:none;flex:0 0 auto;pointer-events:auto}
+.map-status-controls .search-area-button[aria-busy="true"]{cursor:progress;opacity:.82}
+
+@media(max-width:800px){
+  .map-status-controls{top:132px;width:calc(100% - 24px)}
+  .map-status-controls .nearby-pill,.map-status-controls .search-area-button{padding:10px 13px;font-size:12px}
+}
+
+@media(max-width:390px){
+  .map-status-controls{gap:6px;width:calc(100% - 14px);max-width:none}
+  .map-status-controls .nearby-pill,.map-status-controls .search-area-button{padding:9px 11px;font-size:11px}
+}
+
+@media(max-width:800px) and (max-height:680px){
+  .map-status-controls{top:120px}
 }

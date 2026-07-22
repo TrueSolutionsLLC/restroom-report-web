@@ -152,87 +152,119 @@ const storageType = (label: string) => ({ "Gas station": "gasStation", "Truck st
 const colorFor = (type: string) => ({ "Gas station": "blue", "Truck stop": "orange", "Rest area": "teal", "Fast food": "rose" }[type] ?? "blue");
 const readable = (raw: unknown) => String(raw ?? "unknown").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, value => value.toUpperCase());
 
+type StationDocument = {
+  id: string;
+  data: () => Record<string, unknown>;
+};
+
+const mapStation = (stationDoc: StationDocument): LivePlace | null => {
+  const data = stationDoc.data();
+  const type = displayType(String(data.stationType ?? data.locationType ?? "gasStation"));
+  const reviewCount = Number(data.reviewCount ?? 0);
+  if (data.latitude === null || data.latitude === undefined || data.longitude === null || data.longitude === undefined) return null;
+  const latitude = Number(data.latitude);
+  const longitude = Number(data.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+
+  return {
+    id: stationDoc.id,
+    name: String(data.name ?? data.brand ?? "Restroom"),
+    type,
+    address: String(data.address ?? [data.city, data.state].filter(Boolean).join(", ") ?? ""),
+    score: reviewCount > 0 ? Math.round(Number(data.cleanScore ?? 0) * 10) / 10 : null,
+    reports: reviewCount,
+    color: colorFor(type),
+    latitude,
+    longitude,
+    status: data.restroomStatus && data.restroomStatus !== "unknown" ? readable(data.restroomStatus) : "Status not confirmed",
+    detail: [data.restroomLayoutType, data.restroomAccessType].filter(value => value && value !== "unknown").map(readable).join(" • ") || "Community-supplied location",
+    accessType: readable(data.restroomAccessType),
+    layoutType: readable(data.restroomLayoutType),
+    city: String(data.city ?? ""),
+    state: String(data.state ?? ""),
+  };
+};
+
+const longitudeIsInBounds = (longitude: number, bounds: GeoBounds) => {
+  if (bounds.west === -180 && bounds.east === 180) return true;
+  return bounds.west <= bounds.east
+    ? longitude >= bounds.west && longitude <= bounds.east
+    : longitude >= bounds.west || longitude <= bounds.east;
+};
+
+const placesInBounds = (places: LivePlace[], bounds: GeoBounds) => places.filter(place => (
+  place.latitude >= bounds.south
+  && place.latitude <= bounds.north
+  && longitudeIsInBounds(place.longitude, bounds)
+));
+
+type BoundsSubscriber = {
+  bounds: GeoBounds;
+  onPlaces: (places: LivePlace[]) => void;
+  onError: (error: Error) => void;
+};
+
+// The existing iOS-created station documents do not yet contain geohashes. Keep
+// one shared live cache and filter it by the current map rectangle so panning in
+// any direction is exact. The old longitude-only, limited query silently omitted
+// valid stations after north/south pans. This cache can be replaced by Firebase's
+// recommended geohash queries after both clients write a geohash field.
+let cachedStations: LivePlace[] = [];
+let stationCacheReady = false;
+let stopStationCache: (() => void) | null = null;
+let stationCacheIdleTimer: ReturnType<typeof setTimeout> | null = null;
+let nextBoundsSubscriberId = 1;
+const boundsSubscribers = new Map<number, BoundsSubscriber>();
+
+const publishCachedStations = () => {
+  boundsSubscribers.forEach(subscriber => subscriber.onPlaces(placesInBounds(cachedStations, subscriber.bounds)));
+};
+
+const ensureStationCache = () => {
+  if (stationCacheIdleTimer) {
+    clearTimeout(stationCacheIdleTimer);
+    stationCacheIdleTimer = null;
+  }
+  if (stopStationCache) return;
+
+  stopStationCache = onSnapshot(collection(db, "stations"), snapshot => {
+    cachedStations = snapshot.docs.map(mapStation).filter((place): place is LivePlace => place !== null);
+    stationCacheReady = true;
+    publishCachedStations();
+  }, error => {
+    boundsSubscribers.forEach(subscriber => subscriber.onError(error));
+    stopStationCache = null;
+  });
+};
+
 export function subscribeToStations(onPlaces: (places: LivePlace[]) => void, onError: (error: Error) => void) {
   const stationsQuery = query(collection(db, "stations"), limit(500));
   return onSnapshot(stationsQuery, snapshot => {
-    const mapped = snapshot.docs.map(doc => {
-      const data = doc.data();
-      const type = displayType(String(data.stationType ?? data.locationType ?? "gasStation"));
-      const reviewCount = Number(data.reviewCount ?? 0);
-      const address = String(data.address ?? [data.city, data.state].filter(Boolean).join(", ") ?? "");
-      return {
-        id: doc.id,
-        name: String(data.name ?? data.brand ?? "Restroom"),
-        type,
-        address,
-        score: reviewCount > 0 ? Math.round(Number(data.cleanScore ?? 0) * 10) / 10 : null,
-        reports: reviewCount,
-        color: colorFor(type),
-        latitude: Number(data.latitude ?? 0),
-        longitude: Number(data.longitude ?? 0),
-        status: data.restroomStatus && data.restroomStatus !== "unknown" ? readable(data.restroomStatus) : "Status not confirmed",
-        detail: [data.restroomLayoutType, data.restroomAccessType].filter(value => value && value !== "unknown").map(readable).join(" • ") || "Community-supplied location",
-        accessType: readable(data.restroomAccessType),
-        layoutType: readable(data.restroomLayoutType),
-        city: String(data.city ?? ""),
-        state: String(data.state ?? ""),
-      };
-    }).filter(place => Number.isFinite(place.latitude) && Number.isFinite(place.longitude) && Math.abs(place.latitude) <= 90 && Math.abs(place.longitude) <= 180);
+    const mapped = snapshot.docs.map(mapStation).filter((place): place is LivePlace => place !== null);
     onPlaces(mapped);
   }, error => onError(error));
 }
 
 export function subscribeToStationsInBounds(bounds: GeoBounds, onPlaces: (places: LivePlace[]) => void, onError: (error: Error) => void) {
-  const stations = collection(db, "stations");
-  const fullWorld = bounds.west === -180 && bounds.east === 180;
-  const stationQueries = fullWorld
-    ? [query(stations, limit(750))]
-    : bounds.west <= bounds.east
-      ? [query(stations, where("longitude", ">=", bounds.west), where("longitude", "<=", bounds.east), limit(750))]
-      : [
-          query(stations, where("longitude", ">=", bounds.west), where("longitude", "<=", 180), limit(750)),
-          query(stations, where("longitude", ">=", -180), where("longitude", "<=", bounds.east), limit(750)),
-        ];
+  const subscriberId = nextBoundsSubscriberId++;
+  boundsSubscribers.set(subscriberId, { bounds, onPlaces, onError });
+  ensureStationCache();
+  if (stationCacheReady) queueMicrotask(() => {
+    if (boundsSubscribers.has(subscriberId)) onPlaces(placesInBounds(cachedStations, bounds));
+  });
 
-  const snapshots = new Map<number, LivePlace[]>();
-  const emit = () => {
-    if (snapshots.size !== stationQueries.length) return;
-    const visible = new Map<string, LivePlace>();
-    snapshots.forEach(items => items.forEach(place => {
-      if (place.latitude >= bounds.south && place.latitude <= bounds.north) visible.set(place.id, place);
-    }));
-    onPlaces([...visible.values()]);
+  return () => {
+    boundsSubscribers.delete(subscriberId);
+    if (boundsSubscribers.size || !stopStationCache) return;
+    // React replaces the bounds subscription during every viewport refresh.
+    // A grace period prevents tearing down and rebuilding the Firestore stream.
+    stationCacheIdleTimer = setTimeout(() => {
+      if (boundsSubscribers.size) return;
+      stopStationCache?.();
+      stopStationCache = null;
+      stationCacheIdleTimer = null;
+    }, 30_000);
   };
-
-  const unsubscribers = stationQueries.map((stationsQuery, index) => onSnapshot(stationsQuery, snapshot => {
-    const mapped = snapshot.docs.map(stationDoc => {
-      const data = stationDoc.data();
-      const type = displayType(String(data.stationType ?? data.locationType ?? "gasStation"));
-      const reviewCount = Number(data.reviewCount ?? 0);
-      const address = String(data.address ?? [data.city, data.state].filter(Boolean).join(", ") ?? "");
-      return {
-        id: stationDoc.id,
-        name: String(data.name ?? data.brand ?? "Restroom"),
-        type,
-        address,
-        score: reviewCount > 0 ? Math.round(Number(data.cleanScore ?? 0) * 10) / 10 : null,
-        reports: reviewCount,
-        color: colorFor(type),
-        latitude: Number(data.latitude ?? 0),
-        longitude: Number(data.longitude ?? 0),
-        status: data.restroomStatus && data.restroomStatus !== "unknown" ? readable(data.restroomStatus) : "Status not confirmed",
-        detail: [data.restroomLayoutType, data.restroomAccessType].filter(value => value && value !== "unknown").map(readable).join(" • ") || "Community-supplied location",
-        accessType: readable(data.restroomAccessType),
-        layoutType: readable(data.restroomLayoutType),
-        city: String(data.city ?? ""),
-        state: String(data.state ?? ""),
-      } satisfies LivePlace;
-    }).filter(place => Number.isFinite(place.latitude) && Number.isFinite(place.longitude) && Math.abs(place.latitude) <= 90 && Math.abs(place.longitude) <= 180);
-    snapshots.set(index, mapped);
-    emit();
-  }, error => onError(error)));
-
-  return () => unsubscribers.forEach(unsubscribe => unsubscribe());
 }
 
 export function subscribeToReviews(stationId: string, onReviews: (reviews: StationReview[]) => void, onError: (error: Error) => void) {

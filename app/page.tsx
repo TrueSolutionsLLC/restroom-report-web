@@ -77,6 +77,13 @@ const emptyAccountData = (userId = ""): AccountData => ({
   userId, profile: null, reviews: [], issueReports: [], profileReady: false, reviewsReady: false, reportsReady: false, error: "",
 });
 
+const viewportKey = (viewport: MapViewport) => [
+  viewport.bounds.south,
+  viewport.bounds.north,
+  viewport.bounds.west,
+  viewport.bounds.east,
+].map(value => value.toFixed(5)).join(":");
+
 export default function Home() {
   const [places, setPlaces] = useState<LivePlace[]>([]);
   const [selected, setSelected] = useState<LivePlace | null>(null);
@@ -87,9 +94,11 @@ export default function Home() {
   const [userCoords, setUserCoords] = useState<Coordinates | null>(null);
   const [mapCenter, setMapCenter] = useState<Coordinates>({ latitude: 38.4, longitude: -96.5 });
   const [mapViewport, setMapViewport] = useState<MapViewport | null>(null);
-  const [pendingViewport, setPendingViewport] = useState<MapViewport | null>(null);
-  const [showSearchArea, setShowSearchArea] = useState(false);
+  const [viewportIsDirty, setViewportIsDirty] = useState(false);
+  const [viewportRequest, setViewportRequest] = useState(0);
   const viewportRefreshTimer = useRef<number | null>(null);
+  const latestViewport = useRef<MapViewport | null>(null);
+  const loadedViewportKey = useRef("");
   const [focus, setFocus] = useState<Coordinates | null>(null);
   const [locationState, setLocationState] = useState<"idle" | "finding" | "found" | "blocked">("idle");
   const [cloudReady, setCloudReady] = useState(false);
@@ -137,41 +146,60 @@ export default function Home() {
 
   useEffect(() => {
     if (!mapViewport) return;
-    let stopStations = () => {};
-    const timer = window.setTimeout(() => {
-      stopStations = subscribeToStationsInBounds(mapViewport.bounds, items => {
-        setPlaces(items);
-        setSelected(current => current && items.some(item => item.id === current.id) ? current : null);
-        setLoadingPlaces(false); setCloudReady(true);
-      }, () => {
-        setLoadingPlaces(false); setCloudReady(false); setToast("Locations in this map area could not be refreshed");
-      });
-    }, 120);
-    return () => { window.clearTimeout(timer); stopStations(); };
+    const requestKey = viewportKey(mapViewport);
+    return subscribeToStationsInBounds(mapViewport.bounds, items => {
+      loadedViewportKey.current = requestKey;
+      setPlaces(items);
+      setSelected(current => current && items.some(item => item.id === current.id) ? current : null);
+      if (latestViewport.current && viewportKey(latestViewport.current) === requestKey) setViewportIsDirty(false);
+      setLoadingPlaces(false);
+      setCloudReady(true);
+    }, () => {
+      setLoadingPlaces(false);
+      setCloudReady(false);
+      setToast("Locations in this map area could not be refreshed");
+    });
   }, [mapViewport]);
 
   const commitMapViewport = useCallback((viewport: MapViewport) => {
     if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
     viewportRefreshTimer.current = null;
     setMapCenter(viewport.center);
-    setMapViewport(viewport);
-    setPendingViewport(null);
-    setShowSearchArea(false);
+    // Always create a new request object so the persistent Search this area
+    // control can explicitly retry even when the visible rectangle is unchanged.
+    setMapViewport({
+      ...viewport,
+      center: { ...viewport.center },
+      bounds: { ...viewport.bounds },
+    });
+    setViewportIsDirty(true);
     setQuery("");
     setLoadingPlaces(true);
   }, []);
 
   const updateMapViewport = useCallback((viewport: MapViewport) => {
+    latestViewport.current = viewport;
     setMapCenter(viewport.center);
-    setPendingViewport(viewport);
-    setShowSearchArea(true);
+    if (viewportKey(viewport) === loadedViewportKey.current) {
+      setViewportIsDirty(false);
+      return;
+    }
+    setViewportIsDirty(true);
     if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
+    if (!mapViewport) {
+      commitMapViewport(viewport);
+      return;
+    }
     viewportRefreshTimer.current = window.setTimeout(() => commitMapViewport(viewport), 700);
-  }, [commitMapViewport]);
+  }, [commitMapViewport, mapViewport]);
 
   const searchThisArea = useCallback(() => {
-    if (pendingViewport) commitMapViewport(pendingViewport);
-  }, [commitMapViewport, pendingViewport]);
+    // Refresh the last region immediately, then ask the mounted map for its
+    // exact live region. This also makes retrying unchanged bounds complete.
+    const viewport = latestViewport.current ?? mapViewport;
+    if (viewport) commitMapViewport(viewport);
+    setViewportRequest(value => value + 1);
+  }, [commitMapViewport, mapViewport]);
 
   useEffect(() => () => {
     if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
@@ -335,12 +363,13 @@ export default function Home() {
     </header>
 
     <section className={`map-area ${selected ? "has-selection" : "no-selection"}`}>
-      <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onViewportChange={updateMapViewport}/>
+      <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onViewportChange={updateMapViewport} viewportRequest={viewportRequest}/>
       <form className="searchbox" onSubmit={event => { event.preventDefault(); searchLocation(); }}><Icon name="search"/><input aria-label="Search restrooms, places or cities" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search restrooms, places or cities"/><button type="submit" disabled={busy}>{busy ? "…" : "Go"}</button></form>
       <div className="filters" aria-label="Restroom categories">{TYPES.map(type => <button key={type} className={filter === type ? "selected" : ""} onClick={() => setFilter(type)}>{type}</button>)}</div>
-      {showSearchArea
-        ? <button className="search-area-button" onClick={searchThisArea}><Icon name="search"/>Search this area</button>
-        : <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{loadingPlaces ? "…" : filtered.length}</span> places</button>}
+      <div className="map-status-controls">
+        <button className={`search-area-button ${viewportIsDirty ? "dirty" : ""}`} onClick={searchThisArea} aria-busy={loadingPlaces}><Icon name="search"/>{loadingPlaces ? "Refreshing…" : "Search this area"}</button>
+        <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{loadingPlaces ? "…" : filtered.length}</span> places</button>
+      </div>
       <button className={`locate ${locationState}`} onClick={findMe}><Icon name="locate"/><span>{locationState === "finding" ? "Finding…" : "Near me"}</span></button>
       <button className="add-fab" onClick={() => setPanel("add")}><Icon name="plus"/><span>Add restroom</span></button>
 
