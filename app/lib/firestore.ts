@@ -150,7 +150,9 @@ export type GeoBounds = {
 
 const displayType = (raw: string) => ({ gasStation: "Gas station", travelCenter: "Truck stop", truckStop: "Truck stop", restArea: "Rest area", fastFood: "Fast food" }[raw] ?? "Gas station");
 const storageType = (label: string) => ({ "Gas station": "gasStation", "Truck stop": "truckStop", "Rest area": "restArea", "Fast food": "fastFood" }[label] ?? "gasStation");
-const colorFor = (type: string) => ({ "Gas station": "blue", "Truck stop": "orange", "Rest area": "teal", "Fast food": "rose" }[type] ?? "blue");
+// Pin/score color reflects whether the place has been rated yet, not its
+// category — category is shown as a text label instead, matching the app.
+const colorFor = (score: number | null) => score === null ? "unrated" : "rated";
 const readable = (raw: unknown) => String(raw ?? "unknown").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, value => value.toUpperCase());
 
 type StationDocument = {
@@ -166,15 +168,16 @@ const mapStation = (stationDoc: StationDocument): LivePlace | null => {
   const latitude = Number(data.latitude);
   const longitude = Number(data.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+  const score = reviewCount > 0 ? Math.round(Number(data.cleanScore ?? 0) * 10) / 10 : null;
 
   return {
     id: stationDoc.id,
     name: String(data.name ?? data.brand ?? "Restroom"),
     type,
     address: String(data.address ?? [data.city, data.state].filter(Boolean).join(", ") ?? ""),
-    score: reviewCount > 0 ? Math.round(Number(data.cleanScore ?? 0) * 10) / 10 : null,
+    score,
     reports: reviewCount,
-    color: colorFor(type),
+    color: colorFor(score),
     latitude,
     longitude,
     status: data.restroomStatus && data.restroomStatus !== "unknown" ? readable(data.restroomStatus) : "Status not confirmed",

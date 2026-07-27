@@ -16,6 +16,8 @@ export type MapViewport = {
   zoom: number;
 };
 
+export type MapStyle = "standard" | "satellite";
+
 export type RestroomMapProps = {
   places: LivePlace[];
   selected: LivePlace | null;
@@ -25,6 +27,7 @@ export type RestroomMapProps = {
   onViewportChange: (viewport: MapViewport) => void;
   viewportRequest: number;
   localSearchRequest: number;
+  mapStyle: MapStyle;
 };
 
 export function viewportSpanDegrees(viewport: MapViewport) {

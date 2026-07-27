@@ -12,11 +12,10 @@ import type { MapViewport, RestroomMapProps } from "./mapTypes";
 
 type AppleMap = InstanceType<MapKit["Map"]>;
 
+// Pin color reflects rating status (rated vs. unrated), not category.
 const colors: Record<string, string> = {
-  blue: "#0a84ff",
-  orange: "#f08a32",
-  teal: "#18a7a1",
-  rose: "#ef5470",
+  rated: "#30b256",
+  unrated: "#f08a32",
 };
 
 function pinLabel(place: LivePlace) {
@@ -25,7 +24,7 @@ function pinLabel(place: LivePlace) {
 
 function updatePinElement(element: HTMLElement, place: LivePlace, active: boolean) {
   element.className = `apple-restroom-pin${active ? " active" : ""}`;
-  element.style.setProperty("--pin-color", colors[place.color] ?? colors.blue);
+  element.style.setProperty("--pin-color", colors[place.color] ?? colors.unrated);
   element.setAttribute("aria-label", `${place.name}, ${place.score === null ? "unrated" : `${place.score} out of 10`}`);
   const label = element.querySelector<HTMLElement>(".apple-restroom-pin-label");
   if (label) label.textContent = pinLabel(place);
@@ -114,6 +113,7 @@ export default function AppleRestroomMap({
   onViewportChange,
   viewportRequest,
   localSearchRequest,
+  mapStyle,
   onUnavailable,
 }: RestroomMapProps & { onUnavailable: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -294,6 +294,13 @@ export default function AppleRestroomMap({
     // Read the MapKit region now instead of trusting a possibly stale event.
     reportViewport(true);
   }, [ready, reportViewport, viewportRequest]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const mapkit = mapKitRef.current;
+    if (!map || !mapkit || !ready) return;
+    map.mapType = mapStyle === "satellite" ? mapkit.MapType.Satellite : mapkit.MapType.Standard;
+  }, [ready, mapStyle]);
 
   useEffect(() => {
     const map = mapRef.current;
