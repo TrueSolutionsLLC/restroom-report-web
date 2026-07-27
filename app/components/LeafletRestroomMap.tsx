@@ -7,11 +7,10 @@ import type { LivePlace } from "../lib/firestore";
 import type { Coordinates, MapViewport, RestroomMapProps } from "./mapTypes";
 import "leaflet/dist/leaflet.css";
 
+// Pin color reflects rating status (rated vs. unrated), not category.
 const colors: Record<string, string> = {
-  blue: "#0a84ff",
-  orange: "#f08a32",
-  teal: "#18a7a1",
-  rose: "#ef5470",
+  rated: "#30b256",
+  unrated: "#f08a32",
 };
 
 const normalizeLongitude = (longitude: number) => ((longitude + 180) % 360 + 360) % 360 - 180;
@@ -65,20 +64,22 @@ function markerIcon(place: LivePlace, active: boolean) {
   const score = place.score === null ? "?" : String(place.score);
   return L.divIcon({
     className: "rr-marker-wrap",
-    html: `<span class="rr-marker ${active ? "active" : ""}" style="--marker:${colors[place.color] ?? colors.blue}"><b>${score}</b></span>`,
+    html: `<span class="rr-marker ${active ? "active" : ""}" style="--marker:${colors[place.color] ?? colors.unrated}"><b>${score}</b></span>`,
     iconSize: active ? [48, 56] : [40, 48],
     iconAnchor: active ? [24, 54] : [20, 46],
   });
 }
 
-export default function LeafletRestroomMap({ places, selected, onSelect, userCoords, focus, onViewportChange, viewportRequest, localSearchRequest }: RestroomMapProps) {
+export default function LeafletRestroomMap({ places, selected, onSelect, userCoords, focus, onViewportChange, viewportRequest, localSearchRequest, mapStyle }: RestroomMapProps) {
   const icons = useMemo(
     () => new Map(places.map(place => [place.id, markerIcon(place, selected?.id === place.id)])),
     [places, selected?.id],
   );
 
   return <MapContainer center={[38.4, -96.5]} zoom={4} minZoom={3} maxZoom={19} zoomControl={false} className="real-map leaflet-map">
-    <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+    {mapStyle === "satellite"
+      ? <TileLayer attribution="Tiles &copy; Esri" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+      : <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />}
     <Controller userCoords={userCoords} focus={focus} onViewportChange={onViewportChange} viewportRequest={viewportRequest} localSearchRequest={localSearchRequest} />
     {places.map(place => <Marker
       key={place.id}

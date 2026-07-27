@@ -26,6 +26,7 @@ type AccountData = {
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/restroom-report/id6785755048";
 const TYPES = ["All", "Gas station", "Truck stop", "Rest area", "Fast food"];
+const TYPE_LABELS: Record<string, string> = { "All": "All", "Gas station": "Gas", "Truck stop": "Truck Stops", "Rest area": "Rest Areas", "Fast food": "Fast Food" };
 const CHECKS = [
   { key: "paper", label: "Toilet paper" }, { key: "soap", label: "Soap" }, { key: "sink", label: "Working sink" },
   { key: "safe", label: "Felt safe" }, { key: "accessible", label: "Accessible" }, { key: "changingTable", label: "Changing table" },
@@ -40,6 +41,7 @@ function Icon({ name }: { name: string }) {
     info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></>, chevron: <path d="m9 18 6-6-6-6"/>, share: <><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 11v9h14v-9"/></>,
     install: <><path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 19h14"/></>, check: <path d="m5 12 4 4L19 6"/>, back: <path d="m15 18-6-6 6-6"/>,
     map: <><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></>, flag: <><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></>,
+    layers: <><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></>,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -94,7 +96,8 @@ const candidatePlace = (place: AppleMapsPoiResult): LivePlace => ({
   address: place.formattedAddress,
   score: null,
   reports: 0,
-  color: ({ "Gas station": "blue", "Truck stop": "orange", "Rest area": "teal", "Fast food": "rose" } as Record<string, string>)[place.type] ?? "blue",
+  // Discovered candidates are always unrated until someone submits a report.
+  color: "unrated",
   latitude: place.latitude,
   longitude: place.longitude,
   status: "Status not confirmed",
@@ -137,6 +140,9 @@ export default function Home() {
   const [viewportRequest, setViewportRequest] = useState(0);
   const [localSearchRequest, setLocalSearchRequest] = useState(0);
   const [wideZoom, setWideZoom] = useState(false);
+  const [mapStyle, setMapStyle] = useState<"standard" | "satellite">("standard");
+  const [mapStyleMenuOpen, setMapStyleMenuOpen] = useState(false);
+  const mapStyleControlRef = useRef<HTMLDivElement>(null);
   const latestViewport = useRef<MapViewport | null>(null);
   const loadedViewportKey = useRef("");
   const placeRequestSequence = useRef(0);
@@ -293,6 +299,15 @@ export default function Home() {
     if (!selected) return;
     return subscribeToReviews(selected.id, setReviews, () => setReviews([]));
   }, [selected]);
+
+  useEffect(() => {
+    if (!mapStyleMenuOpen) return;
+    const closeIfOutside = (event: MouseEvent) => {
+      if (!mapStyleControlRef.current?.contains(event.target as Node)) setMapStyleMenuOpen(false);
+    };
+    document.addEventListener("mousedown", closeIfOutside);
+    return () => document.removeEventListener("mousedown", closeIfOutside);
+  }, [mapStyleMenuOpen]);
 
   const currentUserId = user?.uid ?? "";
   useEffect(() => {
@@ -464,9 +479,16 @@ export default function Home() {
     </header>
 
     <section className={`map-area ${selected ? "has-selection" : "no-selection"}`}>
-      <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onViewportChange={updateMapViewport} viewportRequest={viewportRequest} localSearchRequest={localSearchRequest}/>
+      <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onViewportChange={updateMapViewport} viewportRequest={viewportRequest} localSearchRequest={localSearchRequest} mapStyle={mapStyle}/>
+      <div className="map-style-control" ref={mapStyleControlRef}>
+        <button aria-label="Map style" onClick={() => setMapStyleMenuOpen(current => !current)}><Icon name="layers"/></button>
+        {mapStyleMenuOpen && <div className="map-style-menu" role="menu">
+          <button role="menuitem" className={mapStyle === "standard" ? "selected" : ""} onClick={() => { setMapStyle("standard"); setMapStyleMenuOpen(false); }}><Icon name="check"/>Standard</button>
+          <button role="menuitem" className={mapStyle === "satellite" ? "selected" : ""} onClick={() => { setMapStyle("satellite"); setMapStyleMenuOpen(false); }}><Icon name="check"/>Satellite</button>
+        </div>}
+      </div>
       <form className="searchbox" onSubmit={event => { event.preventDefault(); searchLocation(); }}><Icon name="search"/><input aria-label="Search restrooms, places or cities" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search restrooms, places or cities"/><button type="submit" disabled={busy}>{busy ? "…" : "Go"}</button></form>
-      <div className="filters" aria-label="Restroom categories">{TYPES.map(type => <button key={type} className={filter === type ? "selected" : ""} onClick={() => setFilter(type)}>{type}</button>)}</div>
+      <div className="filters" aria-label="Restroom categories">{TYPES.map(type => <button key={type} className={filter === type ? "selected" : ""} onClick={() => setFilter(type)}>{TYPE_LABELS[type]}</button>)}</div>
       <div className="map-status-controls">
         <button className={`search-area-button ${viewportIsDirty ? "dirty" : ""} ${wideZoom ? "wide" : ""}`} onClick={searchThisArea} aria-busy={loadingPlaces}>
           <Icon name={wideZoom ? "locate" : "search"}/>
