@@ -8,8 +8,9 @@ import type { User } from "firebase/auth";
 import { initializeFirebaseAnalytics } from "./lib/firebase";
 import { geocodeAppleMaps, isAppleMapsConfigured, searchAppleMaps, searchAppleMapsPois, type AppleMapsPoiResult } from "./lib/mapkit";
 import {
-  addStation, completeRedirectSignIn, ensureAnonymousUser, preloadAppleSignIn, signInWithApple, signInWithGoogle, signOutUser,
-  submitReview, subscribeToReviews, subscribeToStationsInBounds, subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews,
+  addStation, completeRedirectSignIn, ensureAnonymousUser, preloadAppleSignIn, setStationAvoided, setStationFavorited, signInWithApple,
+  signInWithGoogle, signOutUser, submitReview, subscribeToReviews, subscribeToStationIssueReports, subscribeToStationsInBounds,
+  subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews,
   type GeoBounds, type LivePlace, type StationReview, type UserIssueReport, type UserProfile, type UserReview,
 } from "./lib/firestore";
 import { isWideViewport } from "./components/mapTypes";
@@ -41,10 +42,42 @@ function Icon({ name }: { name: string }) {
     info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></>, chevron: <path d="m9 18 6-6-6-6"/>, share: <><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 11v9h14v-9"/></>,
     install: <><path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 19h14"/></>, check: <path d="m5 12 4 4L19 6"/>, back: <path d="m15 18-6-6 6-6"/>,
     map: <><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></>, flag: <><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></>,
-    layers: <><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></>,
+    layers: <><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></>, bookmark: <path d="M6 3h12v18l-6-4-6 4Z"/>,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
+
+function CleanScoreRing({ score }: { score: number | null }) {
+  const radius = 30;
+  const circumference = 2 * Math.PI * radius;
+  const pct = score === null ? 0 : Math.max(0, Math.min(100, (score / 10) * 100));
+  const offset = circumference * (1 - pct / 100);
+  return <div className="cleanscore-ring">
+    <svg viewBox="0 0 70 70" aria-hidden="true">
+      <circle cx="35" cy="35" r={radius} className="ring-track"/>
+      {score !== null && <circle cx="35" cy="35" r={radius} className="ring-value" strokeDasharray={circumference} strokeDashoffset={offset} transform="rotate(-90 35 35)"/>}
+    </svg>
+    <div className="cleanscore-ring-label"><strong>{score ?? "?"}</strong><span>Cleanscore</span></div>
+  </div>;
+}
+
+const relativeTime = (date: Date | null) => {
+  if (!date) return "—";
+  const days = (Date.now() - date.getTime()) / 86_400_000;
+  if (days < 1) return "Today";
+  if (days < 2) return "Yesterday";
+  if (days < 7) return `${Math.floor(days)} day${Math.floor(days) === 1 ? "" : "s"} ago`;
+  if (days < 30) return `${Math.floor(days / 7)} wk. ago`;
+  if (days < 365) return `${Math.floor(days / 30)} mo. ago`;
+  return `${Math.floor(days / 365)} yr. ago`;
+};
+
+const confidenceTier = (reviewCount: number) => {
+  if (reviewCount <= 0) return null;
+  if (reviewCount < 3) return "Low";
+  if (reviewCount < 7) return "Medium";
+  return "High";
+};
 
 const milesBetween = (a: Coordinates, b: Coordinates) => {
   const toRad = (value: number) => value * Math.PI / 180;
@@ -153,6 +186,7 @@ export default function Home() {
   const [loadingPlaces, setLoadingPlaces] = useState(true);
   const [toast, setToast] = useState("");
   const [reviews, setReviews] = useState<StationReview[]>([]);
+  const [stationIssueReports, setStationIssueReports] = useState<UserIssueReport[]>([]);
   const [accountData, setAccountData] = useState<AccountData>(() => emptyAccountData());
   const [installPrompt, setInstallPrompt] = useState<DeferredInstall | null>(null);
   const [isStandalone] = useState(() => typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches);
@@ -302,6 +336,11 @@ export default function Home() {
   }, [selected]);
 
   useEffect(() => {
+    if (!selected) return;
+    return subscribeToStationIssueReports(selected.id, setStationIssueReports, () => setStationIssueReports([]));
+  }, [selected]);
+
+  useEffect(() => {
     if (!mapStyleMenuOpen) return;
     const closeIfOutside = (event: MouseEvent) => {
       if (!mapStyleControlRef.current?.contains(event.target as Node)) setMapStyleMenuOpen(false);
@@ -400,6 +439,34 @@ export default function Home() {
   };
   const openRating = () => { setPanel("rate"); setRating(0); setOdor(0); setCrowd("quiet"); setComment(""); setAnswers(Object.fromEntries(CHECKS.map(item => [item.key, null]))); setSubmitted(false); };
   const ratingComplete = rating > 0 && odor > 0 && Object.values(answers).every(value => value !== null);
+
+  const restroomSummary = useMemo(() => {
+    if (!reviews.length) return null;
+    const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    const cleanliness = average(reviews.map(review => review.cleanlinessRating));
+    const odorScore = average(reviews.map(review => review.odorRating));
+    const suppliesRatio = reviews.filter(review => review.soapAvailable && review.toiletPaperAvailable).length / reviews.length;
+    const tier = (value: number) => value >= 3.5 ? "Good" : value >= 2.5 ? "Fair" : "Bad";
+    return {
+      cleanliness: tier(cleanliness),
+      odor: tier(odorScore),
+      supplies: suppliesRatio >= .5 ? "Good" : "Low",
+      lastReport: relativeTime(reviews[0]?.createdAt ?? null),
+    };
+  }, [reviews]);
+
+  const isFavorited = Boolean(selected && userProfile?.favoriteStationIds.includes(selected.id));
+  const isAvoided = Boolean(selected && userProfile?.avoidedStationIds.includes(selected.id));
+  const toggleFavorite = async () => {
+    if (!selected || !user) return;
+    try { await setStationFavorited(user.uid, selected.id, !isFavorited); }
+    catch { notify("Could not update saved stops. Please try again."); }
+  };
+  const toggleAvoid = async () => {
+    if (!selected || !user) return;
+    try { await setStationAvoided(user.uid, selected.id, !isAvoided); }
+    catch { notify("Could not update avoided stops. Please try again."); }
+  };
 
   const saveReview = async () => {
     if (!selected || !user || !ratingComplete) return;
@@ -527,10 +594,49 @@ export default function Home() {
     {panel !== "none" && <div className="scrim" onMouseDown={() => setPanel("none")}><section className={`sheet ${panel}`} onMouseDown={event => event.stopPropagation()}>
       <div className="sheet-handle"/><button className="sheet-close" aria-label="Close" onClick={() => setPanel("none")}><Icon name="close"/></button>
 
-      {panel === "detail" && selected && <><button className="sheet-back" onClick={() => setPanel("none")}><Icon name="back"/>Map</button><div className={`detail-hero ${selected.color}`}><span>{selected.score ?? "?"}</span><div><p>{selected.type}</p><h2>{selected.name}</h2><small>{selected.address}</small></div></div>
+      {panel === "detail" && selected && <>
+        <div className="detail-topbar">
+          <button className="sheet-back" onClick={() => setPanel("none")}><Icon name="back"/>Map</button>
+          <button className="report-link" onClick={openRating}>Report</button>
+        </div>
+        <div className={`detail-hero-card ${selected.color}`}>
+          <div className="detail-hero-top">
+            <div>
+              <span className="detail-type-label">{selected.type}</span>
+              <h2>{selected.name}</h2>
+              <p>{selected.address || "Address unavailable"}</p>
+              {userCoords && <em>{milesBetween(userCoords, selected).toFixed(1)} mi away</em>}
+            </div>
+            <CleanScoreRing score={selected.score}/>
+          </div>
+          {confidenceTier(selected.reports) && <div className="confidence-banner"><Icon name="info"/>{confidenceTier(selected.reports)} Confidence · {selected.reports} rating{selected.reports === 1 ? "" : "s"}</div>}
+          <div className="detail-tags"><span className="tag">{selected.type}</span><span className="tag muted">{selected.accessType}</span></div>
+          <div className="detail-stats">
+            <span><b>{reviews.length}</b><small>Reviews</small></span>
+            <span><b>{stationIssueReports.length}</b><small>Reports</small></span>
+            <span><b>{reviews[0] ? relativeTime(reviews[0].createdAt) : "—"}</b><small>Last review</small></span>
+            <span><b>{confidenceTier(selected.reports) ?? "—"}</b><small>Confidence</small></span>
+          </div>
+        </div>
+
         <div className="detail-actions"><button onClick={() => directions(selected)}><Icon name="route"/>Directions</button><button onClick={openRating}><Icon name="star"/>Rate</button><button onClick={() => navigator.share?.({ title: selected.name, text: `Check this restroom on Restroom Report`, url: location.href })}><Icon name="share"/>Share</button></div>
-        <section className="facts"><h3>What travelers know</h3><div><span><b>{selected.status}</b><small>Current status</small></span><span><b>{selected.accessType}</b><small>Public access</small></span><span><b>{selected.layoutType}</b><small>Layout</small></span><span><b>{selected.reports}</b><small>Reports</small></span></div></section>
-        <section className="reviews"><div className="section-title"><h3>Recent reports</h3><button onClick={openRating}>Add yours</button></div>{reviews.length ? reviews.slice(0, 8).map(review => <article key={review.id}><div><span className="review-score">{review.cleanlinessRating}.0</span><strong>{"★".repeat(review.cleanlinessRating)}{"☆".repeat(5 - review.cleanlinessRating)}</strong><time>{review.createdAt?.toLocaleDateString() ?? "Recently"}</time></div>{review.comment && <p>“{review.comment}”</p>}<small>{[review.soapAvailable && "Soap", review.toiletPaperAvailable && "Paper", review.feltSafe && "Felt safe"].filter(Boolean).join(" • ") || "Quick community report"}</small></article>) : <div className="no-reviews"><span>★</span><h4>Be the first to describe it</h4><p>A quick report helps the next traveler.</p></div>}</section>
+
+        {restroomSummary && <section className="restroom-summary">
+          <h3>Restroom Summary</h3>
+          <div className="summary-grid">
+            <div className={`summary-tile ${restroomSummary.cleanliness === "Good" ? "good" : "bad"}`}><small>Cleanliness</small><strong>{restroomSummary.cleanliness}</strong></div>
+            <div className={`summary-tile ${restroomSummary.odor === "Good" ? "good" : "bad"}`}><small>Odor</small><strong>{restroomSummary.odor}</strong></div>
+            <div className={`summary-tile ${restroomSummary.supplies === "Good" ? "good" : "bad"}`}><small>Supplies</small><strong>{restroomSummary.supplies}</strong></div>
+            <div className="summary-tile neutral"><small>Last Report</small><strong>{restroomSummary.lastReport}</strong></div>
+          </div>
+        </section>}
+
+        <div className="save-avoid-actions">
+          <button className={isFavorited ? "active" : ""} onClick={toggleFavorite} disabled={!user}><Icon name="bookmark"/>{isFavorited ? "Saved" : "Save Stop"}</button>
+          <button className={isAvoided ? "active" : ""} onClick={toggleAvoid} disabled={!user}><Icon name="flag"/>{isAvoided ? "Avoided" : "Avoid"}</button>
+        </div>
+
+        <section className="reviews"><div className="section-title"><h3>Latest Reports</h3><button onClick={openRating}>Add yours</button></div>{reviews.length ? reviews.slice(0, 8).map(review => <article key={review.id}><div><span className="review-score">{review.cleanlinessRating}.0</span><strong>{"★".repeat(review.cleanlinessRating)}{"☆".repeat(5 - review.cleanlinessRating)}</strong><time>{review.createdAt?.toLocaleDateString() ?? "Recently"}</time></div>{review.comment && <p>“{review.comment}”</p>}<small>{[review.soapAvailable && "Soap", review.toiletPaperAvailable && "Paper", review.feltSafe && "Felt safe"].filter(Boolean).join(" • ") || "Quick community report"}</small></article>) : <div className="no-reviews"><span>★</span><h4>Be the first to describe it</h4><p>A quick report helps the next traveler.</p></div>}</section>
       </>}
 
       {panel === "rate" && selected && !submitted && <><p className="eyebrow">30-second report</p><h2>How was {selected.name}?</h2><p className="muted">Answer what you can. Your report helps everyone traveling after you.</p>
