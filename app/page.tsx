@@ -596,6 +596,7 @@ export default function Home() {
       {mainView === "map" && <button className="add-fab" onClick={() => setPanel("add")}><Icon name="plus"/><span>Add restroom</span></button>}
 
       {mainView === "map" && (selected ? <aside className="place-card">
+        <button className="card-close" onClick={() => setSelected(null)} aria-label="Close"><Icon name="close"/></button>
         <button className="card-open" onClick={() => setPanel("detail")} aria-label="Open restroom details"><Icon name="chevron"/></button>
         <div className="card-head"><span className={`type-dot ${selected.color}`}/><span>{selected.type}</span><span className={`status-chip ${selected.status === "Status not confirmed" ? "unknown" : ""}`}>{selected.status}</span></div>
         <div className="card-main"><div><h1>{selected.name}</h1><p>{selected.address || "Address unavailable"}</p></div><div className={`score ${selected.score !== null && selected.score >= 8 ? "great" : ""}`}><strong>{selected.score ?? "—"}</strong><span>{selected.reports ? `${selected.reports} report${selected.reports === 1 ? "" : "s"}` : "Unrated"}</span></div></div>
