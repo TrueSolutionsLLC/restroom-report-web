@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, limit, onSnapshot, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, arrayRemove, arrayUnion, collection, doc, limit, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { GoogleAuthProvider, OAuthProvider, getRedirectResult, onAuthStateChanged, signInAnonymously, signInWithCredential, signInWithPopup, signOut, type User, type UserCredential } from "firebase/auth";
 import { auth, db } from "./firebase";
 
@@ -359,6 +359,41 @@ export function subscribeToUserIssueReports(userId: string, onReports: (reports:
     }).sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
     onReports(reports);
   }, error => onError(error));
+}
+
+// Issue reports are stored in the same "reports" collection used for a
+// traveler's own history, just filtered by station instead of by reporter.
+export function subscribeToStationIssueReports(stationId: string, onReports: (reports: UserIssueReport[]) => void, onError: (error: Error) => void) {
+  const reportsQuery = query(collection(db, "reports"), where("stationId", "==", stationId), limit(250));
+  return onSnapshot(reportsQuery, snapshot => {
+    const reports = snapshot.docs.map(reportDoc => {
+      const data = reportDoc.data();
+      return {
+        id: reportDoc.id,
+        stationId: String(data.stationId ?? ""),
+        reporterUserId: String(data.reporterUserId ?? ""),
+        issueType: readable(data.issueType),
+        comment: String(data.comment ?? ""),
+        status: readable(data.status),
+        createdAt: data.createdAt?.toDate?.() ?? null,
+      } satisfies UserIssueReport;
+    }).sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+    onReports(reports);
+  }, error => onError(error));
+}
+
+// setDoc with merge (rather than updateDoc) so this still works for a
+// traveler whose "users/{uid}" profile document doesn't exist yet.
+export async function setStationFavorited(userId: string, stationId: string, favorited: boolean) {
+  await setDoc(doc(db, "users", userId), {
+    favoriteStationIds: favorited ? arrayUnion(stationId) : arrayRemove(stationId),
+  }, { merge: true });
+}
+
+export async function setStationAvoided(userId: string, stationId: string, avoided: boolean) {
+  await setDoc(doc(db, "users", userId), {
+    avoidedStationIds: avoided ? arrayUnion(stationId) : arrayRemove(stationId),
+  }, { merge: true });
 }
 
 export function ensureAnonymousUser(onUser: (user: User) => void, onError: (error: Error) => void) {
