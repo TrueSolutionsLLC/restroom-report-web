@@ -75,12 +75,20 @@ const longitudeSpan = (west: number, east: number) => (
   west <= east ? east - west : (180 - west) + (east + 180)
 );
 
-const resultType = (name: string, category: string | null): AppleMapsPoiResult["type"] => {
+const FAST_FOOD_CHAINS = /\b(mcdonald'?s|burger king|wendy'?s|taco bell|kfc|kentucky fried chicken|subway|chick-?fil-?a|sonic drive-?in|arby'?s|popeyes|chipotle|panda express|dairy queen|jack in the box|whataburger|in-?n-?out|culver'?s|carl'?s jr|hardee'?s|del taco|zaxby'?s|bojangles|raising cane'?s|jimmy john'?s|domino'?s|pizza hut|papa john'?s|little caesars|five guys|shake shack|wingstop|checkers|rally'?s|long john silver'?s|captain d'?s|church'?s (chicken|texas chicken)|el pollo loco|qdoba|moe'?s southwest|jersey mike'?s|firehouse subs|krystal|white castle|steak ?'?n ?shake|cook ?out|freddy'?s)\b/i;
+
+// Only bucket a discovered place into one of the four approved categories
+// when it is genuinely that kind of place. Anything else (a random parking
+// lot, a sit-down restaurant, a coffee shop) is excluded rather than guessed,
+// since Apple's broad POI categories otherwise flood the map with unrelated
+// businesses and flicker as the result set shifts between similar queries.
+const resultType = (name: string, category: string | null): AppleMapsPoiResult["type"] | null => {
   const normalizedName = name.toLowerCase();
   if (/\b(truck stop|travel center|travelcentre|flying j|pilot travel|love'?s travel|ta travel)\b/.test(normalizedName)) return "Truck stop";
-  if (/\b(rest area|rest stop|welcome center|welcome centre)\b/.test(normalizedName) || category === "Restroom" || category === "Parking") return "Rest area";
-  if (["Restaurant", "Cafe", "Bakery", "FoodMarket"].includes(category ?? "")) return "Fast food";
-  return "Gas station";
+  if (/\b(rest area|rest stop|welcome center|welcome centre)\b/.test(normalizedName) || category === "Restroom") return "Rest area";
+  if (category === "GasStation") return "Gas station";
+  if (FAST_FOOD_CHAINS.test(normalizedName)) return "Fast food";
+  return null;
 };
 
 const longitudeInBounds = (longitude: number, viewport: AppleMapsViewport) => {
@@ -102,14 +110,15 @@ export async function searchAppleMapsPois(viewport: AppleMapsViewport, signal?: 
   if (latitudeDelta > 4 || longitudeDelta > 4) return [];
 
   const mapkit = await loadAppleMaps();
+  // Parking is included only to catch highway rest areas that Apple tags as a
+  // parking lot rather than a gas station; the name check in resultType still
+  // excludes ordinary parking lots. Cafe/Bakery/FoodMarket are left out
+  // entirely since fast-food chains are reliably tagged as Restaurant.
   const categories = [
     mapkit.PointOfInterestCategory.GasStation,
     mapkit.PointOfInterestCategory.Restroom,
     mapkit.PointOfInterestCategory.Parking,
     mapkit.PointOfInterestCategory.Restaurant,
-    mapkit.PointOfInterestCategory.Cafe,
-    mapkit.PointOfInterestCategory.Bakery,
-    mapkit.PointOfInterestCategory.FoodMarket,
   ];
   const region = {
     center: viewport.center,
@@ -124,6 +133,7 @@ export async function searchAppleMapsPois(viewport: AppleMapsViewport, signal?: 
     if (!coordinate || !place.name) return [];
     if (coordinate.latitude < viewport.bounds.south || coordinate.latitude > viewport.bounds.north || !longitudeInBounds(coordinate.longitude, viewport)) return [];
     const type = resultType(place.name, place.pointOfInterestCategory);
+    if (!type) return [];
     const fallbackId = `${place.name}:${coordinate.latitude.toFixed(6)}:${coordinate.longitude.toFixed(6)}`;
     return [{
       id: `apple:${place.id ?? fallbackId}`,
