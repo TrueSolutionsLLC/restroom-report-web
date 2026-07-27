@@ -43,6 +43,10 @@ function Icon({ name }: { name: string }) {
     install: <><path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 19h14"/></>, check: <path d="m5 12 4 4L19 6"/>, back: <path d="m15 18-6-6 6-6"/>,
     map: <><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></>, flag: <><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></>,
     layers: <><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></>, bookmark: <path d="M6 3h12v18l-6-4-6 4Z"/>,
+    gas: <><path d="M4 21V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v14"/><path d="M4 21h10"/><path d="M14 8h2a2 2 0 0 1 2 2v7a1.5 1.5 0 0 0 3 0v-5l-2-2"/></>,
+    truck: <><path d="M2 8h11v9H2z"/><path d="M13 11h4l3 3v3h-7z"/><circle cx="6" cy="19" r="1.6"/><circle cx="17" cy="19" r="1.6"/></>,
+    sign: <><rect x="4" y="5" width="16" height="10" rx="1"/><path d="M12 15v4"/></>,
+    bag: <><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></>,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -196,7 +200,7 @@ export default function Home() {
   const [rating, setRating] = useState(0), [odor, setOdor] = useState(0), [crowd, setCrowd] = useState("quiet"), [comment, setComment] = useState("");
   const [answers, setAnswers] = useState<Record<string, boolean | null>>(() => Object.fromEntries(CHECKS.map(item => [item.key, null])));
   const [submitted, setSubmitted] = useState(false);
-  const [addForm, setAddForm] = useState({ name: "", address: "", type: "Gas station", accessType: "unknown", layoutType: "unknown" });
+  const [addForm, setAddForm] = useState({ name: "", brand: "", address: "", type: "Gas station", accessType: "unknown", layoutType: "unknown" });
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 3000); };
 
@@ -520,7 +524,7 @@ export default function Home() {
     try {
       const coords = await geocode(addForm.address);
       await addStation({ userId: user.uid, ...addForm, ...coords });
-      setFocus(coords); setPanel("none"); setAddForm({ name: "", address: "", type: "Gas station", accessType: "unknown", layoutType: "unknown" }); notify("Restroom added—thank you!");
+      setFocus(coords); setPanel("none"); setAddForm({ name: "", brand: "", address: "", type: "Gas station", accessType: "unknown", layoutType: "unknown" }); notify("Restroom added—thank you!");
     } catch { notify("We couldn’t locate that address. Add the city and state, then try again."); }
     finally { setBusy(false); }
   };
@@ -649,7 +653,33 @@ export default function Home() {
       </>}
       {panel === "rate" && submitted && <div className="thanks"><div className="thanks-rings"><span><Icon name="check"/></span></div><p className="eyebrow">Rating submitted</p><h2>You helped the next traveler.</h2><p>Your fresh report makes Restroom Report more useful and trustworthy.</p><button className="submit" onClick={() => setPanel("none")}>Back to the map</button><button className="text-button" onClick={() => setPanel("detail")}>View this restroom</button></div>}
 
-      {panel === "add" && <><p className="eyebrow">Grow the map</p><h2>Add a restroom</h2><p className="muted">Add public-access locations only. We’ll locate the pin from the address.</p><label className="form-label">Place name<input value={addForm.name} onChange={event => setAddForm(current => ({ ...current, name: event.target.value }))} placeholder="e.g. QuikTrip"/></label><label className="form-label">Full address<input value={addForm.address} onChange={event => setAddForm(current => ({ ...current, address: event.target.value }))} placeholder="Street, city, state"/></label><div className="form-row"><label className="form-label">Type<select value={addForm.type} onChange={event => setAddForm(current => ({ ...current, type: event.target.value }))}>{TYPES.slice(1).map(type => <option key={type}>{type}</option>)}</select></label><label className="form-label">Access<select value={addForm.accessType} onChange={event => setAddForm(current => ({ ...current, accessType: event.target.value }))}><option value="unknown">Not sure</option><option value="public">Public</option><option value="customersOnly">Customers only</option><option value="keyRequired">Key required</option></select></label></div><label className="form-label">Layout<select value={addForm.layoutType} onChange={event => setAddForm(current => ({ ...current, layoutType: event.target.value }))}><option value="unknown">Not sure</option><option value="singleStall">Single stall</option><option value="multiStall">Multiple stalls</option><option value="family">Family restroom</option></select></label><div className="privacy-note"><Icon name="info"/><span>No restroom photos are collected. Address and basic access details only.</span></div><button className="submit" disabled={busy} onClick={saveStation}>{busy ? "Finding address…" : "Add restroom"}</button>
+      {panel === "add" && <>
+        <div className="add-topbar"><button className="cancel-link" onClick={() => setPanel("none")}>Cancel</button><h2>Add Restroom Location</h2></div>
+        <div className="add-intro"><span className="add-intro-icon"><Icon name="plus"/></span><div><strong>Add a missing stop</strong><p>Confirm the station details, then add it so travelers can rate the restroom.</p></div></div>
+
+        <section className="add-card">
+          <h3><Icon name="locate"/>Location Details</h3>
+          <label className="form-label">Station name<input value={addForm.name} onChange={event => setAddForm(current => ({ ...current, name: event.target.value }))} placeholder="e.g. QuikTrip"/></label>
+          <label className="form-label">Brand<input value={addForm.brand} onChange={event => setAddForm(current => ({ ...current, brand: event.target.value }))} placeholder="e.g. Shell, Circle K"/></label>
+          <label className="form-label">Full address<input value={addForm.address} onChange={event => setAddForm(current => ({ ...current, address: event.target.value }))} placeholder="Street, city, state"/></label>
+
+          <span className="field-label">Location Type</span>
+          <div className="location-type-grid">
+            {[
+              { type: "Gas station", icon: "gas" },
+              { type: "Truck stop", icon: "truck" },
+              { type: "Rest area", icon: "sign" },
+              { type: "Fast food", icon: "bag" },
+            ].map(option => <button key={option.type} className={`location-type-tile ${addForm.type === option.type ? "selected" : ""}`} onClick={() => setAddForm(current => ({ ...current, type: option.type }))}>
+              <Icon name={option.icon}/><span>{TYPE_LABELS[option.type]}</span>
+            </button>)}
+          </div>
+
+          <div className="form-row"><label className="form-label">Access<select value={addForm.accessType} onChange={event => setAddForm(current => ({ ...current, accessType: event.target.value }))}><option value="unknown">Not sure</option><option value="public">Public</option><option value="customersOnly">Customers only</option><option value="keyRequired">Key required</option></select></label><label className="form-label">Layout<select value={addForm.layoutType} onChange={event => setAddForm(current => ({ ...current, layoutType: event.target.value }))}><option value="unknown">Not sure</option><option value="singleStall">Single stall</option><option value="multiStall">Multiple stalls</option><option value="family">Family restroom</option></select></label></div>
+        </section>
+
+        <div className="privacy-note"><Icon name="info"/><span>No restroom photos are collected. Address and basic access details only.</span></div>
+        <button className="submit" disabled={busy} onClick={saveStation}><Icon name="plus"/>{busy ? "Finding address…" : "Add to Restroom Report"}</button>
       </>}
 
       {panel === "reports" && <><p className="eyebrow">Your impact</p><h2>Contributions</h2><p className="muted">Ratings and issue reports synced from your Restroom Report account.</p>{accountLoading ? <div className="loading-list">Syncing your contribution history…</div> : myContributions.length ? <div className="report-list">{myContributions.map(contribution => <button key={contribution.id} onClick={() => { const place = places.find(item => item.id === contribution.stationId); if (place) selectPlace(place, true); else notify("This restroom is not currently loaded on the map"); }}><span className={contribution.kind}>{contribution.kind === "review" ? "★" : "!"}</span><div><strong>{contribution.title}</strong><small>{contribution.detail}{contribution.createdAt ? ` • ${contribution.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : ""}</small></div><b>{contribution.status}</b></button>)}</div> : <div className="empty-state"><div>★</div><h3>{user?.isAnonymous ? "Your first report matters" : "No reports found for this account"}</h3><p>{user?.isAnonymous ? "Rate a restroom to start your contribution history." : "If your iPhone has reports, this Apple login may not be resolving to the same Firebase user yet."}</p><button className="submit" onClick={() => setPanel("none")}>Explore the map</button></div>}</>}
