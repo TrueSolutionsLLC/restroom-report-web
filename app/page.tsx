@@ -136,7 +136,6 @@ export default function Home() {
   const [viewportRequest, setViewportRequest] = useState(0);
   const [localSearchRequest, setLocalSearchRequest] = useState(0);
   const [wideZoom, setWideZoom] = useState(false);
-  const viewportRefreshTimer = useRef<number | null>(null);
   const latestViewport = useRef<MapViewport | null>(null);
   const loadedViewportKey = useRef("");
   const placeRequestSequence = useRef(0);
@@ -243,8 +242,6 @@ export default function Home() {
   }, [mapViewport]);
 
   const commitMapViewport = useCallback((viewport: MapViewport) => {
-    if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
-    viewportRefreshTimer.current = null;
     setMapCenter(viewport.center);
     // Always create a new request object so the persistent Search this area
     // control can explicitly retry even when the visible rectangle is unchanged.
@@ -253,26 +250,26 @@ export default function Home() {
       center: { ...viewport.center },
       bounds: { ...viewport.bounds },
     });
-    setViewportIsDirty(true);
+    setViewportIsDirty(false);
     setQuery("");
     setLoadingPlaces(true);
   }, []);
 
+  // Moving or zooming the map only updates the live viewport reference and the
+  // "Search this area" dirty state — it never re-searches on its own. An
+  // automatic re-search on every pan (including the recenter triggered by
+  // tapping a pin) was re-running Firestore/Apple Maps constantly, which made
+  // pins flicker and could drop the just-selected place out of the results.
+  // The user now explicitly asks for a new search.
   const updateMapViewport = useCallback((viewport: MapViewport) => {
     latestViewport.current = viewport;
     setMapCenter(viewport.center);
     setWideZoom(isWideViewport(viewport));
-    if (viewportKey(viewport) === loadedViewportKey.current) {
-      setViewportIsDirty(false);
-      return;
-    }
-    setViewportIsDirty(true);
-    if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
     if (!mapViewport) {
       commitMapViewport(viewport);
       return;
     }
-    viewportRefreshTimer.current = window.setTimeout(() => commitMapViewport(viewport), 700);
+    setViewportIsDirty(viewportKey(viewport) !== loadedViewportKey.current);
   }, [commitMapViewport, mapViewport]);
 
   const searchThisArea = useCallback(() => {
@@ -289,10 +286,6 @@ export default function Home() {
     if (viewport) commitMapViewport(viewport);
     setViewportRequest(value => value + 1);
   }, [commitMapViewport, mapViewport]);
-
-  useEffect(() => () => {
-    if (viewportRefreshTimer.current !== null) window.clearTimeout(viewportRefreshTimer.current);
-  }, []);
 
   useEffect(() => {
     if (!selected) return;
@@ -475,7 +468,7 @@ export default function Home() {
       <div className="map-status-controls">
         <button className={`search-area-button ${viewportIsDirty ? "dirty" : ""} ${wideZoom ? "wide" : ""}`} onClick={searchThisArea} aria-busy={loadingPlaces}>
           <Icon name={wideZoom ? "locate" : "search"}/>
-          {wideZoom ? "Zoom in & search" : loadingPlaces ? (places.length ? "Updating" : "Finding places…") : filtered.length ? "Search this area" : "Try area search again"}
+          {wideZoom ? "Zoom in & search" : loadingPlaces ? "Searching…" : filtered.length ? "Search this area" : "Try area search again"}
         </button>
         <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{loadingPlaces ? "…" : filtered.length}</span> Places</button>
       </div>
@@ -487,7 +480,7 @@ export default function Home() {
         <div className="card-head"><span className={`type-dot ${selected.color}`}/><span>{selected.type}</span><span className={`status-chip ${selected.status === "Status not confirmed" ? "unknown" : ""}`}>{selected.status}</span></div>
         <div className="card-main"><div><h1>{selected.name}</h1><p>{selected.address || "Address unavailable"}</p></div><div className={`score ${selected.score !== null && selected.score >= 8 ? "great" : ""}`}><strong>{selected.score ?? "—"}</strong><span>{selected.reports ? `${selected.reports} report${selected.reports === 1 ? "" : "s"}` : "Unrated"}</span></div></div>
         <div className="actions"><button onClick={() => directions(selected)}><Icon name="route"/>Directions</button><button className="primary" onClick={openRating}><Icon name="star"/>Rate restroom</button></div>
-      </aside> : <aside className="discovery-card"><span className="discovery-icon"><Icon name="locate"/></span><div><strong>Find a better stop</strong><p>{wideZoom ? "Search a city, tap Near me, or use Zoom in & search." : "Move the map or choose a restroom marker."}</p></div></aside>}
+      </aside> : <aside className="discovery-card"><span className="discovery-icon"><Icon name="locate"/></span><div><strong>Find a better stop</strong><p>{wideZoom ? "Search a city, tap Near me, or use Zoom in & search." : "Move the map, then tap Search this area."}</p></div></aside>}
 
       <div className="site-links"><span className={`cloud-state ${cloudReady ? "ready" : ""}`}>● {cloudReady ? "Live data" : "Connecting"}</span>{!isStandalone && <button onClick={installApp}>Install</button>}<Link href="/support">Support</Link><Link href="/privacy">Privacy</Link></div>
 
