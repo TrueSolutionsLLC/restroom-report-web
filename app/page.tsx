@@ -12,6 +12,7 @@ import {
   submitReview, subscribeToReviews, subscribeToStationsInBounds, subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews,
   type GeoBounds, type LivePlace, type StationReview, type UserIssueReport, type UserProfile, type UserReview,
 } from "./lib/firestore";
+import { isWideViewport } from "./components/mapTypes";
 
 const RestroomMap = dynamic(() => import("./components/RestroomMap"), { ssr: false });
 type Coordinates = { latitude: number; longitude: number };
@@ -37,6 +38,7 @@ function Icon({ name }: { name: string }) {
     star: <path d="m12 2 3 6 7 .8-5 4.8 1.5 7-6.5-3.5-6.5 3.5 1.5-7-5-4.8L9 8z"/>, close: <path d="m6 6 12 12M18 6 6 18"/>,
     info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></>, chevron: <path d="m9 18 6-6-6-6"/>, share: <><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 11v9h14v-9"/></>,
     install: <><path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 19h14"/></>, check: <path d="m5 12 4 4L19 6"/>, back: <path d="m15 18-6-6 6-6"/>,
+    map: <><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></>, flag: <><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></>,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -132,6 +134,8 @@ export default function Home() {
   const [mapViewport, setMapViewport] = useState<MapViewport | null>(null);
   const [viewportIsDirty, setViewportIsDirty] = useState(false);
   const [viewportRequest, setViewportRequest] = useState(0);
+  const [localSearchRequest, setLocalSearchRequest] = useState(0);
+  const [wideZoom, setWideZoom] = useState(false);
   const viewportRefreshTimer = useRef<number | null>(null);
   const latestViewport = useRef<MapViewport | null>(null);
   const loadedViewportKey = useRef("");
@@ -191,6 +195,9 @@ export default function Home() {
     let communityReady = false;
     let discoveryReady = !isAppleMapsConfigured();
 
+    // Only replace the on-screen places once a source has actually reported
+    // back. Publishing before either source resolves would clear the map to
+    // empty on every viewport change, making pins flash or disappear.
     const publish = () => {
       if (requestSequence !== placeRequestSequence.current) return;
       const items = mergeMapPlaces(community, discovered);
@@ -232,7 +239,6 @@ export default function Home() {
       });
     }
 
-    publish();
     return () => { controller.abort(); stopStations(); };
   }, [mapViewport]);
 
@@ -255,6 +261,7 @@ export default function Home() {
   const updateMapViewport = useCallback((viewport: MapViewport) => {
     latestViewport.current = viewport;
     setMapCenter(viewport.center);
+    setWideZoom(isWideViewport(viewport));
     if (viewportKey(viewport) === loadedViewportKey.current) {
       setViewportIsDirty(false);
       return;
@@ -269,9 +276,16 @@ export default function Home() {
   }, [commitMapViewport, mapViewport]);
 
   const searchThisArea = useCallback(() => {
+    const viewport = latestViewport.current ?? mapViewport;
+    // At regional/nationwide zoom, an area search can never return a useful
+    // Apple Maps result. Zoom to a local radius around the current center
+    // instead of silently repeating an empty search.
+    if (viewport && isWideViewport(viewport)) {
+      setLocalSearchRequest(value => value + 1);
+      return;
+    }
     // Refresh the last region immediately, then ask the mounted map for its
     // exact live region. This also makes retrying unchanged bounds complete.
-    const viewport = latestViewport.current ?? mapViewport;
     if (viewport) commitMapViewport(viewport);
     setViewportRequest(value => value + 1);
   }, [commitMapViewport, mapViewport]);
@@ -455,12 +469,15 @@ export default function Home() {
     </header>
 
     <section className={`map-area ${selected ? "has-selection" : "no-selection"}`}>
-      <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onViewportChange={updateMapViewport} viewportRequest={viewportRequest}/>
+      <RestroomMap places={filtered} selected={selected} onSelect={selectPlace} userCoords={userCoords} focus={focus} onViewportChange={updateMapViewport} viewportRequest={viewportRequest} localSearchRequest={localSearchRequest}/>
       <form className="searchbox" onSubmit={event => { event.preventDefault(); searchLocation(); }}><Icon name="search"/><input aria-label="Search restrooms, places or cities" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search restrooms, places or cities"/><button type="submit" disabled={busy}>{busy ? "…" : "Go"}</button></form>
       <div className="filters" aria-label="Restroom categories">{TYPES.map(type => <button key={type} className={filter === type ? "selected" : ""} onClick={() => setFilter(type)}>{type}</button>)}</div>
       <div className="map-status-controls">
-        <button className={`search-area-button ${viewportIsDirty ? "dirty" : ""}`} onClick={searchThisArea} aria-busy={loadingPlaces}><Icon name="search"/>{loadingPlaces ? "Refreshing…" : "Search this area"}</button>
-        <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{loadingPlaces ? "…" : filtered.length}</span> places</button>
+        <button className={`search-area-button ${viewportIsDirty ? "dirty" : ""} ${wideZoom ? "wide" : ""}`} onClick={searchThisArea} aria-busy={loadingPlaces}>
+          <Icon name={wideZoom ? "locate" : "search"}/>
+          {wideZoom ? "Zoom in & search" : loadingPlaces ? (places.length ? "Updating" : "Finding places…") : filtered.length ? "Search this area" : "Try area search again"}
+        </button>
+        <button className="nearby-pill" onClick={() => setPanel("list")}><Icon name="list"/><span>{loadingPlaces ? "…" : filtered.length}</span> Places</button>
       </div>
       <button className={`locate ${locationState}`} onClick={findMe}><Icon name="locate"/><span>{locationState === "finding" ? "Finding…" : "Near me"}</span></button>
       <button className="add-fab" onClick={() => setPanel("add")}><Icon name="plus"/><span>Add restroom</span></button>
@@ -470,16 +487,24 @@ export default function Home() {
         <div className="card-head"><span className={`type-dot ${selected.color}`}/><span>{selected.type}</span><span className={`status-chip ${selected.status === "Status not confirmed" ? "unknown" : ""}`}>{selected.status}</span></div>
         <div className="card-main"><div><h1>{selected.name}</h1><p>{selected.address || "Address unavailable"}</p></div><div className={`score ${selected.score !== null && selected.score >= 8 ? "great" : ""}`}><strong>{selected.score ?? "—"}</strong><span>{selected.reports ? `${selected.reports} report${selected.reports === 1 ? "" : "s"}` : "Unrated"}</span></div></div>
         <div className="actions"><button onClick={() => directions(selected)}><Icon name="route"/>Directions</button><button className="primary" onClick={openRating}><Icon name="star"/>Rate restroom</button></div>
-      </aside> : <aside className="discovery-card"><span className="discovery-icon"><Icon name="locate"/></span><div><strong>Find a better stop</strong><p>Tap Near me or choose a marker.</p></div></aside>}
+      </aside> : <aside className="discovery-card"><span className="discovery-icon"><Icon name="locate"/></span><div><strong>Find a better stop</strong><p>{wideZoom ? "Search a city, tap Near me, or use Zoom in & search." : "Move the map or choose a restroom marker."}</p></div></aside>}
 
       <div className="site-links"><span className={`cloud-state ${cloudReady ? "ready" : ""}`}>● {cloudReady ? "Live data" : "Connecting"}</span>{!isStandalone && <button onClick={installApp}>Install</button>}<Link href="/support">Support</Link><Link href="/privacy">Privacy</Link></div>
+
+      {panel === "none" && <nav className="mobile-tabbar" aria-label="Primary">
+        <button className="active" onClick={() => setPanel("none")}><Icon name="map"/><span>Map</span></button>
+        <button onClick={() => setPanel("list")}><Icon name="list"/><span>Places</span></button>
+        <button className="tabbar-add" onClick={() => setPanel("add")} aria-label="Add restroom"><Icon name="plus"/></button>
+        <button onClick={() => setPanel("reports")}><Icon name="flag"/><span>Reports</span></button>
+        <button onClick={() => setPanel("account")}><Icon name="user"/><span>Profile</span></button>
+      </nav>}
     </section>
 
     {panel !== "none" && <div className="scrim" onMouseDown={() => setPanel("none")}><section className={`sheet ${panel}`} onMouseDown={event => event.stopPropagation()}>
       <div className="sheet-handle"/><button className="sheet-close" aria-label="Close" onClick={() => setPanel("none")}><Icon name="close"/></button>
 
       {panel === "list" && <><p className="eyebrow">Explore</p><h2>{query ? "Search results" : userCoords ? "Closest to you" : "Loaded restrooms"}</h2><p className="muted">{filtered.length} matching place{filtered.length === 1 ? "" : "s"}</p>
-        <div className="place-list">{loadingPlaces ? <div className="loading-list">Loading live restroom data…</div> : filtered.length ? filtered.map(place => <button key={place.id} onClick={() => { selectPlace(place); setPanel("none"); }}><span className={`mini-score ${place.color}`}>{place.score ?? "?"}</span><span><strong>{place.name}</strong><small>{place.type} • {place.address || "Address unavailable"}</small>{userCoords && <em>{milesBetween(userCoords, place).toFixed(1)} miles away</em>}</span><Icon name="chevron"/></button>) : <div className="empty-state"><div>⌕</div><h3>No matches yet</h3><p>Try another search or add the missing location.</p><button className="submit" onClick={() => setPanel("add")}>Add this place</button></div>}</div>
+        <div className="place-list">{loadingPlaces ? <div className="loading-list">Loading live restroom data…</div> : filtered.length ? filtered.map(place => <button key={place.id} onClick={() => { selectPlace(place); setPanel("none"); }}><span className={`mini-score ${place.color}`}>{place.score ?? "?"}</span><span><strong>{place.name}</strong><small>{place.type} • {place.address || "Address unavailable"}</small>{userCoords && <em>{milesBetween(userCoords, place).toFixed(1)} miles away</em>}</span><Icon name="chevron"/></button>) : wideZoom ? <div className="empty-state"><div>⌕</div><h3>Choose a local area</h3><p>Search a city, tap Near me, or use Zoom in & search on the map.</p></div> : <div className="empty-state"><div>⌕</div><h3>No matches yet</h3><p>Try another search or add the missing location.</p><button className="submit" onClick={() => setPanel("add")}>Add this place</button></div>}</div>
       </>}
 
       {panel === "detail" && selected && <><button className="sheet-back" onClick={() => setPanel("none")}><Icon name="back"/>Map</button><div className={`detail-hero ${selected.color}`}><span>{selected.score ?? "?"}</span><div><p>{selected.type}</p><h2>{selected.name}</h2><small>{selected.address}</small></div></div>
