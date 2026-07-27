@@ -18,7 +18,7 @@ import { isWideViewport } from "./components/mapTypes";
 const RestroomMap = dynamic(() => import("./components/RestroomMap"), { ssr: false });
 type Coordinates = { latitude: number; longitude: number };
 type MapViewport = { center: Coordinates; bounds: GeoBounds; zoom: number };
-type Panel = "none" | "detail" | "rate" | "add" | "reports" | "account" | "install" | "getapp";
+type Panel = "none" | "detail" | "rate" | "toofar" | "add" | "reports" | "account" | "install" | "getapp";
 type DeferredInstall = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 type AccountData = {
   userId: string; profile: UserProfile | null; reviews: UserReview[]; issueReports: UserIssueReport[];
@@ -26,6 +26,9 @@ type AccountData = {
 };
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/restroom-report/id6785755048";
+// How close a traveler must be (by device GPS) to rate a restroom. Wide
+// enough to cover a large truck stop parking lot plus normal GPS drift.
+const GEOFENCE_RADIUS_MILES = 0.5;
 const TYPES = ["All", "Gas station", "Truck stop", "Rest area", "Fast food"];
 const TYPE_LABELS: Record<string, string> = { "All": "All", "Gas station": "Gas", "Truck stop": "Truck Stops", "Rest area": "Rest Areas", "Fast food": "Fast Food" };
 const CHECKS = [
@@ -441,7 +444,25 @@ export default function Home() {
       : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
-  const openRating = () => { setPanel("rate"); setRating(0); setOdor(0); setCrowd("quiet"); setComment(""); setAnswers(Object.fromEntries(CHECKS.map(item => [item.key, null]))); setSubmitted(false); };
+  const startRating = () => { setPanel("rate"); setRating(0); setOdor(0); setCrowd("quiet"); setComment(""); setAnswers(Object.fromEntries(CHECKS.map(item => [item.key, null]))); setSubmitted(false); };
+  const openRating = async () => {
+    if (!selected) return;
+    if (navigator.geolocation) {
+      try {
+        const coords = await new Promise<Coordinates>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            position => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+            reject,
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+          );
+        });
+        if (milesBetween(coords, selected) > GEOFENCE_RADIUS_MILES) { setPanel("toofar"); return; }
+      } catch {
+        // Location unavailable or denied — this can't be enforced without it, so don't block.
+      }
+    }
+    startRating();
+  };
   const ratingComplete = rating > 0 && odor > 0 && Object.values(answers).every(value => value !== null);
 
   const restroomSummary = useMemo(() => {
@@ -642,6 +663,15 @@ export default function Home() {
 
         <section className="reviews"><div className="section-title"><h3>Latest Reports</h3><button onClick={openRating}>Add yours</button></div>{reviews.length ? reviews.slice(0, 8).map(review => <article key={review.id}><div><span className="review-score">{review.cleanlinessRating}.0</span><strong>{"★".repeat(review.cleanlinessRating)}{"☆".repeat(5 - review.cleanlinessRating)}</strong><time>{review.createdAt?.toLocaleDateString() ?? "Recently"}</time></div>{review.comment && <p>“{review.comment}”</p>}<small>{[review.soapAvailable && "Soap", review.toiletPaperAvailable && "Paper", review.feltSafe && "Felt safe"].filter(Boolean).join(" • ") || "Quick community report"}</small></article>) : <div className="no-reviews"><span>★</span><h4>Be the first to describe it</h4><p>A quick report helps the next traveler.</p></div>}</section>
       </>}
+
+      {panel === "toofar" && selected && <div className="toofar-block">
+        <span className="toofar-icon"><Icon name="locate"/></span>
+        <p className="eyebrow">Too far to rate</p>
+        <h2>Head to {selected.name} first</h2>
+        <p className="muted">You need to be near this location to rate its restroom. This keeps ratings trustworthy for the next traveler.</p>
+        <button className="submit" onClick={() => directions(selected)}><Icon name="route"/>Get Directions</button>
+        <button className="text-button" onClick={() => setPanel("none")}>OK</button>
+      </div>}
 
       {panel === "rate" && selected && !submitted && <><p className="eyebrow">30-second report</p><h2>How was {selected.name}?</h2><p className="muted">Answer what you can. Your report helps everyone traveling after you.</p>
         <div className="rating-block"><label>Cleanliness <b>{rating ? `${rating}/5` : "Required"}</b></label><div className="stars">{[1,2,3,4,5].map(value => <button key={value} className={rating >= value ? "on" : ""} onClick={() => setRating(value)} aria-label={`${value} stars`}><Icon name="star"/></button>)}</div></div>
