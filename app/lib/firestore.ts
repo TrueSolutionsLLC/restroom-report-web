@@ -461,12 +461,12 @@ export async function submitReview(input: {
 }
 
 export async function addStation(input: {
-  userId: string; name: string; address: string; type: string; latitude: number; longitude: number;
+  userId: string; name: string; brand?: string; address: string; type: string; latitude: number; longitude: number;
   city?: string; state?: string; accessType?: string; layoutType?: string; source?: "userAdded" | "mapkit";
 }) {
   const stationType = storageType(input.type);
   return addDoc(collection(db, "stations"), {
-    addedByUserId: input.userId, name: input.name.trim(), brand: input.name.trim(), address: input.address.trim(),
+    addedByUserId: input.userId, name: input.name.trim(), brand: input.brand?.trim() || input.name.trim(), address: input.address.trim(),
     city: input.city ?? "", state: input.state ?? "", latitude: input.latitude, longitude: input.longitude,
     locationType: stationType, stationType, source: input.source ?? "userAdded", notes: "",
     restroomAccessType: input.accessType ?? "unknown", restroomLayoutType: input.layoutType ?? "unknown",
