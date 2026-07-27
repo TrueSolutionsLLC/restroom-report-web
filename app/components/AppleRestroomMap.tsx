@@ -113,6 +113,7 @@ export default function AppleRestroomMap({
   focus,
   onViewportChange,
   viewportRequest,
+  localSearchRequest,
   onUnavailable,
 }: RestroomMapProps & { onUnavailable: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,7 +127,6 @@ export default function AppleRestroomMap({
   const onViewportChangeRef = useRef(onViewportChange);
   const unavailableRef = useRef(onUnavailable);
   const viewportReportTimerRef = useRef<number | null>(null);
-  const viewportPollRef = useRef<number | null>(null);
   const lastReportedViewportRef = useRef("");
   const lastSelectionRef = useRef({ placeId: "", time: 0 });
   const [ready, setReady] = useState(false);
@@ -153,7 +153,7 @@ export default function AppleRestroomMap({
     onViewportChangeRef.current(viewport);
   }, []);
 
-  const scheduleViewportReport = useCallback((delay = 180) => {
+  const scheduleViewportReport = useCallback((delay = 60) => {
     if (viewportReportTimerRef.current !== null) window.clearTimeout(viewportReportTimerRef.current);
     viewportReportTimerRef.current = window.setTimeout(() => {
       viewportReportTimerRef.current = null;
@@ -201,13 +201,10 @@ export default function AppleRestroomMap({
         map.addEventListener("region-change-end", regionChanged);
         map.addEventListener("select", annotationSelected);
         const mapElement = containerRef.current;
-        const interactionEnded = () => scheduleViewportReport(40);
+        const interactionEnded = () => scheduleViewportReport(60);
         mapElement.addEventListener("pointerup", interactionEnded, { passive: true });
         mapElement.addEventListener("touchend", interactionEnded, { passive: true });
         mapElement.addEventListener("wheel", interactionEnded, { passive: true });
-        // MapKit's region event is the primary signal. The small watchdog catches
-        // WebKit gesture/zoom paths that don't consistently emit a final event.
-        viewportPollRef.current = window.setInterval(() => reportViewport(), 180);
         setReady(true);
         window.requestAnimationFrame(() => reportViewport(true));
 
@@ -231,7 +228,6 @@ export default function AppleRestroomMap({
       disposed = true;
       removeListeners?.();
       if (viewportReportTimerRef.current !== null) window.clearTimeout(viewportReportTimerRef.current);
-      if (viewportPollRef.current !== null) window.clearInterval(viewportPollRef.current);
       mapRef.current = null;
       mapKitRef.current = null;
       map?.destroy();
@@ -347,14 +343,30 @@ export default function AppleRestroomMap({
         longitudeDelta: Math.min(currentSpan.longitudeDelta, .035),
       },
     }, true);
-  }, [focus, ready, userCoords]);
+    // setRegionAnimated should emit region-change-end itself, but this is a
+    // one-time safety net in case a programmatic move doesn't fire it.
+    const fallback = window.setTimeout(() => reportViewport(true), 650);
+    return () => window.clearTimeout(fallback);
+  }, [focus, ready, userCoords, reportViewport]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || localSearchRequest < 1) return;
+    const center = map.region.center;
+    map.setRegionAnimated({
+      center: { latitude: center.latitude, longitude: center.longitude },
+      span: { latitudeDelta: 0.35, longitudeDelta: 0.35 },
+    }, true);
+    const fallback = window.setTimeout(() => reportViewport(true), 650);
+    return () => window.clearTimeout(fallback);
+  }, [ready, localSearchRequest, reportViewport]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
     const mobile = window.matchMedia("(max-width: 800px)").matches;
     map.padding = mobile
-      ? { top: 166, right: 68, bottom: selected ? 304 : 94, left: 12 }
+      ? { top: 166, right: 68, bottom: selected ? 368 : 158, left: 12 }
       : { top: 150, right: 86, bottom: 98, left: selected ? 434 : 34 };
   }, [ready, selected]);
 

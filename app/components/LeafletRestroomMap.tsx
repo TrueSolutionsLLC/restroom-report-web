@@ -16,11 +16,12 @@ const colors: Record<string, string> = {
 
 const normalizeLongitude = (longitude: number) => ((longitude + 180) % 360 + 360) % 360 - 180;
 
-function Controller({ userCoords, focus, onViewportChange, viewportRequest }: {
+function Controller({ userCoords, focus, onViewportChange, viewportRequest, localSearchRequest }: {
   userCoords: Coordinates | null;
   focus: Coordinates | null;
   onViewportChange: (viewport: MapViewport) => void;
   viewportRequest: number;
+  localSearchRequest: number;
 }) {
   const map = useMap();
   const reportViewport = useCallback(() => {
@@ -48,6 +49,14 @@ function Controller({ userCoords, focus, onViewportChange, viewportRequest }: {
   useEffect(() => {
     if (viewportRequest > 0) reportViewport();
   }, [reportViewport, viewportRequest]);
+  useEffect(() => {
+    if (localSearchRequest < 1) return;
+    const center = map.getCenter();
+    map.flyTo(center, Math.max(map.getZoom(), 11), { duration: .6 });
+    const fallback = window.setTimeout(reportViewport, 650);
+    return () => window.clearTimeout(fallback);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localSearchRequest]);
   useMapEvents({ moveend: reportViewport });
   return null;
 }
@@ -62,7 +71,7 @@ function markerIcon(place: LivePlace, active: boolean) {
   });
 }
 
-export default function LeafletRestroomMap({ places, selected, onSelect, userCoords, focus, onViewportChange, viewportRequest }: RestroomMapProps) {
+export default function LeafletRestroomMap({ places, selected, onSelect, userCoords, focus, onViewportChange, viewportRequest, localSearchRequest }: RestroomMapProps) {
   const icons = useMemo(
     () => new Map(places.map(place => [place.id, markerIcon(place, selected?.id === place.id)])),
     [places, selected?.id],
@@ -70,7 +79,7 @@ export default function LeafletRestroomMap({ places, selected, onSelect, userCoo
 
   return <MapContainer center={[38.4, -96.5]} zoom={4} minZoom={3} maxZoom={19} zoomControl={false} className="real-map leaflet-map">
     <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
-    <Controller userCoords={userCoords} focus={focus} onViewportChange={onViewportChange} viewportRequest={viewportRequest} />
+    <Controller userCoords={userCoords} focus={focus} onViewportChange={onViewportChange} viewportRequest={viewportRequest} localSearchRequest={localSearchRequest} />
     {places.map(place => <Marker
       key={place.id}
       position={[place.latitude, place.longitude]}
