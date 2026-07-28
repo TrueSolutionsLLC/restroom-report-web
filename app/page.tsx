@@ -198,6 +198,11 @@ export default function Home() {
   const [installPrompt, setInstallPrompt] = useState<DeferredInstall | null>(null);
   const [isStandalone] = useState(() => typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches);
   const [isIOS] = useState(() => typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent));
+  // Starts "unset" to match server-rendered markup exactly; the real value
+  // (from localStorage, a client-only API) is synced in after mount below,
+  // rather than read in the initializer, which would make the client's
+  // first render disagree with the server and fail hydration.
+  const [cookieConsent, setCookieConsentState] = useState<"unset" | "accepted" | "declined">("unset");
   const [busy, setBusy] = useState(false);
 
   const [rating, setRating] = useState(0), [odor, setOdor] = useState(0), [crowd, setCrowd] = useState("quiet"), [comment, setComment] = useState("");
@@ -206,12 +211,29 @@ export default function Home() {
   const [addForm, setAddForm] = useState({ name: "", brand: "", address: "", type: "Gas station", accessType: "unknown", layoutType: "unknown" });
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 3000); };
+  const setCookieConsent = (value: "accepted" | "declined") => {
+    window.localStorage.setItem("rr-cookie-consent", value);
+    setCookieConsentState(value);
+  };
+
+  // Google Analytics (via Firebase) only loads once the visitor accepts —
+  // ePrivacy/GDPR requires consent before non-essential tracking starts,
+  // not just a notice that it's happening.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("cookies") === "manage") return;
+    const stored = window.localStorage.getItem("rr-cookie-consent");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage (a client-only API with no change-subscription mechanism) after the SSR-matching initial render.
+    if (stored === "accepted" || stored === "declined") setCookieConsentState(stored);
+  }, []);
+
+  useEffect(() => {
+    if (cookieConsent === "accepted") initializeFirebaseAnalytics().catch(() => {});
+  }, [cookieConsent]);
 
   useEffect(() => {
     const installHandler = (event: Event) => { event.preventDefault(); setInstallPrompt(event as DeferredInstall); };
     window.addEventListener("beforeinstallprompt", installHandler);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
-    initializeFirebaseAnalytics().catch(() => {});
     preloadAppleSignIn();
     let stopAuth = () => {};
     let cancelled = false;
@@ -722,5 +744,12 @@ export default function Home() {
       {panel === "install" && <><p className="eyebrow">One-tap access</p><h2>Install Restroom Report</h2><div className="install-art"><span className="brandmark"><Image src="/app-icon-192.png" alt="Restroom Report app icon" width={78} height={78}/></span></div><p className="muted">Add Restroom Report to your home screen. It opens full-screen and feels like an app—no app store required.</p><ol className="install-steps"><li><span>1</span>Tap your browser’s <strong>Share</strong> button.</li><li><span>2</span>Choose <strong>Add to Home Screen</strong> or <strong>Install app</strong>.</li><li><span>3</span>Tap <strong>Add</strong> or <strong>Install</strong>.</li></ol><button className="submit" onClick={() => setPanel("none")}>Got it</button></>}
     </section></div>}
     {toast && <div className="toast" role="status"><Icon name="check"/>{toast}</div>}
+    {cookieConsent === "unset" && <div className="cookie-banner" role="dialog" aria-label="Cookie notice">
+      <p>We use Google Analytics (via Firebase) to understand how Restroom Report is used. Analytics cookies are only set if you accept. See our <Link href="/privacy">privacy policy</Link>.</p>
+      <div className="cookie-banner-actions">
+        <button onClick={() => setCookieConsent("declined")}>Decline</button>
+        <button className="submit" onClick={() => setCookieConsent("accepted")}>Accept</button>
+      </div>
+    </div>}
   </main>;
 }
