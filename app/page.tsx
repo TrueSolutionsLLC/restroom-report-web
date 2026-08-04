@@ -20,12 +20,20 @@ type Coordinates = { latitude: number; longitude: number };
 type MapViewport = { center: Coordinates; bounds: GeoBounds; zoom: number };
 type Panel = "none" | "detail" | "rate" | "toofar" | "add" | "reports" | "account" | "install" | "getapp";
 type DeferredInstall = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
+type AppPromotionPlatform = "ios" | "android" | "other";
 type AccountData = {
   userId: string; profile: UserProfile | null; reviews: UserReview[]; issueReports: UserIssueReport[];
   profileReady: boolean; reviewsReady: boolean; reportsReady: boolean; error: string;
 };
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/restroom-report/id6785755048";
+const APP_PROMOTION_DISMISSED_KEY = "rr-app-promotion-dismissed-at";
+const APP_PROMOTION_INSTALLED_KEY = "rr-web-app-installed";
+const APP_PROMOTION_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
+const isAppleMobileDevice = () => typeof navigator !== "undefined" && (
+  /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+);
 // How close a traveler must be (by device GPS) to rate a restroom. Wide
 // enough to cover a large truck stop parking lot plus normal GPS drift.
 const GEOFENCE_RADIUS_MILES = 0.5;
@@ -196,8 +204,13 @@ export default function Home() {
   const [stationIssueReports, setStationIssueReports] = useState<UserIssueReport[]>([]);
   const [accountData, setAccountData] = useState<AccountData>(() => emptyAccountData());
   const [installPrompt, setInstallPrompt] = useState<DeferredInstall | null>(null);
-  const [isStandalone] = useState(() => typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches);
-  const [isIOS] = useState(() => typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent));
+  const [isStandalone] = useState(() => typeof window !== "undefined" && (
+    window.matchMedia("(display-mode: standalone)").matches
+    || ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone))
+  ));
+  const [isIOS] = useState(isAppleMobileDevice);
+  const [promotionPlatform, setPromotionPlatform] = useState<AppPromotionPlatform>("other");
+  const [showAppPromotion, setShowAppPromotion] = useState(false);
   // Starts "unset" to match server-rendered markup exactly; the real value
   // (from localStorage, a client-only API) is synced in after mount below,
   // rather than read in the initializer, which would make the client's
@@ -231,8 +244,17 @@ export default function Home() {
   }, [cookieConsent]);
 
   useEffect(() => {
-    const installHandler = (event: Event) => { event.preventDefault(); setInstallPrompt(event as DeferredInstall); };
+    const installHandler = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as DeferredInstall);
+    };
+    const installedHandler = () => {
+      try { window.localStorage.setItem(APP_PROMOTION_INSTALLED_KEY, "true"); } catch {}
+      setInstallPrompt(null);
+      setShowAppPromotion(false);
+    };
     window.addEventListener("beforeinstallprompt", installHandler);
+    window.addEventListener("appinstalled", installedHandler);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
     preloadAppleSignIn();
     let stopAuth = () => {};
@@ -253,8 +275,38 @@ export default function Home() {
       if (!cancelled) stopAuth = ensureAnonymousUser(current => { setUser(current); setCloudReady(true); }, () => setCloudReady(false));
     };
     startAuth();
-    return () => { cancelled = true; window.removeEventListener("beforeinstallprompt", installHandler); stopAuth(); };
+    return () => {
+      cancelled = true;
+      window.removeEventListener("beforeinstallprompt", installHandler);
+      window.removeEventListener("appinstalled", installedHandler);
+      stopAuth();
+    };
   }, []);
+
+  useEffect(() => {
+    if (cookieConsent === "unset" || isStandalone) return;
+    const userAgent = navigator.userAgent;
+    const platform: AppPromotionPlatform = isAppleMobileDevice()
+      ? "ios"
+      : /Android/i.test(userAgent)
+        ? "android"
+        : "other";
+    if (platform === "other") return;
+
+    let installed = false;
+    let dismissedAt = 0;
+    try {
+      installed = window.localStorage.getItem(APP_PROMOTION_INSTALLED_KEY) === "true";
+      dismissedAt = Number(window.localStorage.getItem(APP_PROMOTION_DISMISSED_KEY) ?? 0);
+    } catch {}
+    if (installed || (dismissedAt > 0 && Date.now() - dismissedAt < APP_PROMOTION_SNOOZE_MS)) return;
+
+    const timer = window.setTimeout(() => {
+      setPromotionPlatform(platform);
+      setShowAppPromotion(true);
+    }, 2200);
+    return () => window.clearTimeout(timer);
+  }, [cookieConsent, isStandalone]);
 
   useEffect(() => {
     if (!mapViewport) return;
@@ -572,9 +624,57 @@ export default function Home() {
     finally { setBusy(false); }
   };
 
+  const rememberPromotionDismissal = () => {
+    try { window.localStorage.setItem(APP_PROMOTION_DISMISSED_KEY, String(Date.now())); } catch {}
+    setShowAppPromotion(false);
+  };
   const installApp = async () => {
-    if (installPrompt) { await installPrompt.prompt(); const choice = await installPrompt.userChoice; if (choice.outcome === "accepted") setInstallPrompt(null); return; }
+    if (installPrompt) {
+      try {
+        await installPrompt.prompt();
+        const choice = await installPrompt.userChoice;
+        setInstallPrompt(null);
+        if (choice.outcome === "accepted") {
+          try { window.localStorage.setItem(APP_PROMOTION_INSTALLED_KEY, "true"); } catch {}
+          setShowAppPromotion(false);
+        } else {
+          rememberPromotionDismissal();
+        }
+      } catch {
+        setInstallPrompt(null);
+        setShowAppPromotion(false);
+        setPanel("install");
+      }
+      return;
+    }
     setPanel("install");
+  };
+  const activateAppPromotion = async () => {
+    if (promotionPlatform === "ios") {
+      rememberPromotionDismissal();
+      window.location.assign(APP_STORE_URL);
+      return;
+    }
+    setShowAppPromotion(false);
+    await installApp();
+  };
+  const activateBrand = async () => {
+    if (isStandalone) {
+      setPanel("none");
+      return;
+    }
+    if (isIOS) {
+      rememberPromotionDismissal();
+      window.location.assign(APP_STORE_URL);
+      return;
+    }
+    if (promotionPlatform === "android" || /Android/i.test(navigator.userAgent)) {
+      setPromotionPlatform("android");
+      setShowAppPromotion(false);
+      await installApp();
+      return;
+    }
+    setPanel("getapp");
   };
   const authenticate = async (provider: "google" | "apple") => {
     setBusy(true);
@@ -589,8 +689,19 @@ export default function Home() {
 
   return <main className="app-shell">
     <header className="topbar">
-      <button className="brand" onClick={() => setPanel(isStandalone ? "none" : "getapp")}><span className="brandmark"><Image src="/app-icon-192.png" alt="" width={42} height={42} priority/></span><span>Restroom <strong>Report</strong></span></button>
+      <button className={`brand ${showAppPromotion && panel === "none" ? "promoted" : ""}`} onClick={activateBrand} aria-label={isIOS ? "Get Restroom Report on the App Store" : "Install Restroom Report"}><span className="brandmark"><Image src="/app-icon-192.png" alt="" width={42} height={42} priority/></span><span>Restroom <strong>Report</strong></span></button>
       <nav><button className="active" onClick={() => setPanel("none")}>Explore</button><button onClick={() => setPanel("reports")}>Contributions <span className="report-count">{myContributions.length}</span></button><button className="avatar" onClick={() => setPanel("account")} aria-label="Account"><Icon name="user"/></button></nav>
+      {showAppPromotion && panel === "none" && <aside className="app-promotion" role="dialog" aria-modal="false" aria-label={promotionPlatform === "ios" ? "Get the iPhone app" : "Install Restroom Report"}>
+        <span className="app-promotion-pointer" aria-hidden="true"/>
+        <button className="app-promotion-close" onClick={rememberPromotionDismissal} aria-label="Dismiss app promotion"><Icon name="close"/></button>
+        <span className="app-promotion-icon"><Icon name="install"/></span>
+        <div className="app-promotion-copy">
+          <span className="app-promotion-kicker">{promotionPlatform === "ios" ? "Available on iPhone" : "Android web app"}</span>
+          <strong>{promotionPlatform === "ios" ? "Get the iPhone app" : "Install Restroom Report"}</strong>
+          <p>{promotionPlatform === "ios" ? "Tap the app icon for a faster experience." : "Add it to your Home screen for faster, full-screen access."}</p>
+        </div>
+        <button className="app-promotion-action" onClick={activateAppPromotion}>{promotionPlatform === "ios" ? "View in App Store" : installPrompt ? "Install" : "How to install"}</button>
+      </aside>}
     </header>
 
     <section className={`map-area ${selected ? "has-selection" : "no-selection"} ${mainView === "list" ? "list-mode" : ""}`}>

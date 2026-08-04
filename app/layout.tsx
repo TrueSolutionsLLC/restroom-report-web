@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   description: "Find and rate gas station, truck stop, rest area and fast-food restrooms. Free on any phone or browser.",
   other: {
     "codex-preview": "development",
+    "apple-itunes-app": "app-id=6785755048, app-argument=https://restroom-report.com",
   },
   icons: {
     icon: "/favicon.png",

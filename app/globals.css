@@ -221,3 +221,35 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
   .cookie-banner{flex-direction:column;align-items:stretch;gap:12px;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
   .cookie-banner-actions{justify-content:flex-end}
 }
+
+/* Device-aware App Store / Android home-screen invitation */
+.brand.promoted .brandmark{outline:3px solid rgba(10,132,255,.4);box-shadow:0 0 0 7px rgba(10,132,255,.13),0 9px 26px rgba(10,132,255,.28)}
+.app-promotion{position:absolute;z-index:60;top:calc(100% + 9px);left:28px;width:min(430px,calc(100% - 56px));display:grid;grid-template-columns:42px minmax(0,1fr);grid-template-areas:"icon copy" ". action";column-gap:12px;row-gap:10px;padding:15px 46px 15px 15px;border:1px solid rgba(255,255,255,.9);border-radius:20px;background:rgba(255,255,255,.97);backdrop-filter:blur(24px);box-shadow:0 18px 48px rgba(17,43,67,.25);text-align:left;color:var(--ink)}
+.app-promotion-pointer{position:absolute;left:13px;top:-8px;width:16px;height:16px;background:rgba(255,255,255,.97);border-left:1px solid rgba(255,255,255,.9);border-top:1px solid rgba(255,255,255,.9);transform:rotate(45deg)}
+.app-promotion-close{position:absolute;right:10px;top:10px;width:32px;height:32px;border:0;border-radius:50%;background:#edf2f6;color:#75879a;display:grid;place-items:center}
+.app-promotion-close svg{width:16px;height:16px}
+.app-promotion-icon{grid-area:icon;width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#2d9aff,#006fe5);color:white;display:grid;place-items:center;box-shadow:0 8px 18px rgba(10,132,255,.24)}
+.app-promotion-icon svg{width:22px;height:22px}
+.app-promotion-copy{grid-area:copy;min-width:0;padding-right:2px}
+.app-promotion-kicker{display:block;margin-bottom:2px;color:var(--blue);font-size:9px;font-weight:850;letter-spacing:.09em;text-transform:uppercase}
+.app-promotion-copy strong{display:block;font-size:17px;letter-spacing:-.02em}
+.app-promotion-copy p{margin:3px 0 0;color:var(--muted);font-size:12px;line-height:1.4}
+.app-promotion-action{grid-area:action;justify-self:start;border:0;border-radius:10px;background:#e8f3ff;color:#0878e6;padding:8px 11px;font-size:11px;font-weight:820}
+
+@media(max-width:800px){
+  .brand.promoted .brandmark{animation:appPromotionPulse 1.8s ease-in-out infinite}
+  .app-promotion{left:15px;width:min(430px,calc(100% - 30px))}
+  .app-promotion-pointer{left:12px}
+}
+
+@media(max-width:390px){
+  .app-promotion{left:10px;width:calc(100% - 20px);padding-left:13px;column-gap:10px}
+  .app-promotion-pointer{left:17px}
+  .app-promotion-copy strong{font-size:16px}
+}
+
+@media(prefers-reduced-motion:no-preference){
+  .app-promotion{animation:appPromotionIn .26s cubic-bezier(.2,.8,.2,1)}
+  @keyframes appPromotionIn{from{opacity:0;transform:translateY(-7px) scale(.98)}}
+  @keyframes appPromotionPulse{50%{outline-color:rgba(10,132,255,.75);box-shadow:0 0 0 10px rgba(10,132,255,.08),0 9px 26px rgba(10,132,255,.32)}}
+}
