@@ -27,7 +27,7 @@ function pinLabel(place: LivePlace) {
 function updatePinElement(element: HTMLElement, place: LivePlace, active: boolean) {
   element.className = `apple-restroom-pin${active ? " active" : ""}`;
   element.style.setProperty("--pin-color", colors[place.color] ?? colors.unrated);
-  element.setAttribute("aria-label", `${place.name}, ${place.score === null ? "unrated" : `${place.score} out of 10`}`);
+  element.setAttribute("aria-label", `${place.name}, ${place.score === null ? "unrated" : `${pinLabel(place)} out of 10`}`);
   const label = element.querySelector<HTMLElement>(".apple-restroom-pin-label");
   if (label) label.textContent = pinLabel(place);
 }
@@ -279,7 +279,7 @@ export default function AppleRestroomMap({
       annotation.coordinate = { latitude: place.latitude, longitude: place.longitude };
       annotation.title = place.name;
       annotation.subtitle = place.address || place.type;
-      annotation.accessibilityLabel = `${place.name}, ${place.score === null ? "unrated" : `${place.score} out of 10`}`;
+      annotation.accessibilityLabel = `${place.name}, ${place.score === null ? "unrated" : `${pinLabel(place)} out of 10`}`;
       annotation.data = { placeId: place.id };
       annotation.enabled = true;
       updatePinElement(annotation.element, place, active);
