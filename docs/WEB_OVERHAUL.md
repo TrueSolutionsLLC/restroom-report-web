@@ -1,6 +1,10 @@
-# Website experience overhaul — 2026-10-08
+# Website experience overhaul
 
-## Implemented locally
+The overhaul was published October 9, 2026 through [PR 12](https://github.com/TrueSolutionsLLC/restroom-report-web/pull/12), main `c5a30e937364a860f4b41535cfe8fb6f896be846`. Its READY App Hosting build serves 100% of traffic on Node 22; the shared backend, owner-private rules and sanitized public issue migration are also published. [RELEASE_READINESS.md](RELEASE_READINESS.md) records production preservation evidence and remaining provider/device acceptance. Native 1.13 (2) is in release preparation, while App Store 1.9 remains current with a bounded review compatibility path expiring `2026-11-08T05:45:00Z`.
+
+## October 8 local preparation history
+
+The implementation, validation and release statements below preserve their original prepublication checkpoint.
 
 The website now follows the approved native graphite, warm-white and jade direction. The rejected Wayfinder and Field Guide studies were not used. This milestone builds on the data parity work documented in [DATA_PARITY.md](DATA_PARITY.md).
 
@@ -45,7 +49,7 @@ Dependency versions and lockfile remain unchanged. Native app source/version was
 
 Local QA uses public stations and the website's ordinary anonymous session. No rating, issue, saved-list mutation, repair or provider sign-in was submitted for testing. GPS permission was not granted. This does not establish live provider linking, real device proximity submission, screen-reader behavior, Apple Maps fallback recovery or installed-PWA behavior.
 
-## Before release
+## October 8 release gates (historical)
 
 Source is saved locally and has not been committed, pushed or deployed. GitHub main deploys through Firebase App Hosting.
 
@@ -65,4 +69,4 @@ The preceding data-parity checkpoint is preserved in the native project's `docs/
 
 ## Subsequent release hardening
 
-The October 8 dependency, shared-data privacy, authoritative metric and emulator work is tracked in [RELEASE_READINESS.md](RELEASE_READINESS.md). Earlier version/audit/test figures above describe their original checkpoint. Nothing has been published.
+The subsequent dependency, privacy, canonical metric and emulator work is tracked in [RELEASE_READINESS.md](RELEASE_READINESS.md), including the verified October 9 production publication. Earlier version, audit and test figures above describe the original preparation checkpoint.

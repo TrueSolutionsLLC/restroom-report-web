@@ -1,6 +1,10 @@
 # Website and iOS data parity
 
-Prepared October 8, 2026. Website baseline: `TrueSolutionsLLC/restroom-report-web`, commit `5143d1b`. iOS source remains version 1.13 (1). These are local source changes; no website, Firebase, or App Store deployment has occurred.
+Published October 9, 2026: [PR 12](https://github.com/TrueSolutionsLLC/restroom-report-web/pull/12), main `c5a30e937364a860f4b41535cfe8fb6f896be846`, is live on Firebase App Hosting with 100% traffic to a READY Node 22 build. All 13 shared Functions are ACTIVE on Node 22. Paired production snapshots verified 98 canonical stations, two sanitized public issue signals and 121 contributor summaries; raw traveler data and station identities were unchanged during the migration interval. Privacy rules and the bounded installed-client compatibility path are published. See [RELEASE_READINESS.md](RELEASE_READINESS.md) for the current state, acceptance boundaries and the `2026-11-08T05:45:00Z` compatibility expiry. Native 1.13 (2) is in release preparation; App Store 1.9 remains current.
+
+## October 8 preparation history
+
+The following sections preserve the original local checkpoint, before publication and subsequent hardening. Website baseline was `TrueSolutionsLLC/restroom-report-web` commit `5143d1b`, with native source 1.13 (1). Older audit, test and pending-release statements below describe that time.
 
 ## What now matches
 
@@ -76,9 +80,9 @@ The web count subscriber observes the user's complete review query before refres
 - Verified captures: [desktop profile](web-profile.jpg), JPEG 1280 × 720; [phone profile](web-profile-mobile.jpg), JPEG 390 × 844. These show an actual anonymous account with no ratings, not fabricated traveler activity. The website visual/onboarding overhaul is the next milestone.
 - Website saved at `/Users/robbiemacbookpro/Desktop/iOS Apps/Restroom Report Web`, branch `codex/web-ios-data-parity`. All source files matched the working clone by SHA-256; dependencies and build cache were excluded from copying. Git history retained at baseline `5143d1b`; no commit, push or deployment.
 
-Local source implementation is complete. Release QA, dependency refresh, identity-confirmed account reconciliation and the separately reviewed existing sample-data cleanup remain outstanding.
+At this October 8 checkpoint, source implementation was complete and release QA, dependency refresh, account reconciliation and sample-data review remained outstanding. Later publication and canonical recalculation are recorded below; uncertain identity/linkage questions and live account/device acceptance remain separate checks.
 
 
 ## Subsequent release hardening
 
-The October 8 dependency, shared-data privacy, authoritative metric and emulator work is tracked in [RELEASE_READINESS.md](RELEASE_READINESS.md). Earlier version/audit/test figures above describe their original checkpoint. Nothing has been published.
+The subsequent dependency, privacy, canonical metric and emulator work is tracked in [RELEASE_READINESS.md](RELEASE_READINESS.md), including the verified October 9 production publication. Earlier version, audit and test figures above describe the original preparation checkpoint.
