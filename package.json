@@ -2,17 +2,22 @@
   "name": "restroom-report-web",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test app/lib/__tests__/*.test.mjs"
   },
   "dependencies": {
     "@apple/mapkit-loader": "^1.0.0",
-    "firebase": "^12.7.0",
+    "firebase": "^12.19.0",
     "leaflet": "^1.9.4",
-    "next": "16.2.10",
+    "next": "16.3.8",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "react-leaflet": "^5.0.0"
@@ -23,10 +28,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.3.8",
     "typescript": "^5.9"
   },
   "overrides": {
-    "postcss": "^8.5.10"
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.13.6"
+    }
   }
 }

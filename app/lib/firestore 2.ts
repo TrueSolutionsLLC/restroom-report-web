@@ -407,7 +407,7 @@ export function subscribeToStationIssueReports(stationId: string, onReports: (re
   let signalGeneration = 0;
   const stopStation = onSnapshot(doc(db, "stations", stationId), station => {
     if (!active) return;
-    if (!station.exists() || station.data().issueSignalsVersion !== 1 || station.data().issueSignalsMigrationRequired === true) {
+    if (!station.exists() || station.data().issueSignalsVersion !== 1) {
       signalGeneration += 1; stopSignals?.(); stopSignals = null;
       onError(new Error("Issue reports are unavailable right now."));
       return;

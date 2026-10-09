@@ -1,0 +1,482 @@
+
+> restroom-report-web@1.0.0 test
+> node --test app/lib/__tests__/*.test.mjs
+
+TAP version 13
+# Subtest: a changed or signed-out session cannot receive credentials or a late auth result
+ok 1 - a changed or signed-out session cannot receive credentials or a late auth result
+  ---
+  duration_ms: 1.185625
+  type: 'test'
+  ...
+# Subtest: returning Apple sign-in preserves a stored name when Apple provides no name again
+ok 2 - returning Apple sign-in preserves a stored name when Apple provides no name again
+  ---
+  duration_ms: 0.094792
+  type: 'test'
+  ...
+# Subtest: new provider name and identity fields are written without manufacturing unavailable email
+ok 3 - new provider name and identity fields are written without manufacturing unavailable email
+  ---
+  duration_ms: 0.039458
+  type: 'test'
+  ...
+# Subtest: guest and Google metadata identify the actual provider
+ok 4 - guest and Google metadata identify the actual provider
+  ---
+  duration_ms: 0.044667
+  type: 'test'
+  ...
+# Subtest: linking Google upgrades a generated guest name and preserves activity ownership
+ok 5 - linking Google upgrades a generated guest name and preserves activity ownership
+  ---
+  duration_ms: 0.087333
+  type: 'test'
+  ...
+# Subtest: a provider name cannot replace a real custom name during guest linking
+ok 6 - a provider name cannot replace a real custom name during guest linking
+  ---
+  duration_ms: 0.035583
+  type: 'test'
+  ...
+# Subtest: guest placeholder is preserved when the provider has no replacement name
+ok 7 - guest placeholder is preserved when the provider has no replacement name
+  ---
+  duration_ms: 0.064917
+  type: 'test'
+  ...
+# Subtest: a late older aggregate result cannot overwrite the latest total
+ok 8 - a late older aggregate result cannot overwrite the latest total
+  ---
+  duration_ms: 0.383042
+  type: 'test'
+  ...
+# Subtest: an aggregate failure is unavailable and does not manufacture a zero total
+ok 9 - an aggregate failure is unavailable and does not manufacture a zero total
+  ---
+  duration_ms: 0.21925
+  type: 'test'
+  ...
+# Subtest: switching accounts or disposing suppresses success and failure of pending requests
+ok 10 - switching accounts or disposing suppresses success and failure of pending requests
+  ---
+  duration_ms: 0.2355
+  type: 'test'
+  ...
+# Subtest: an obsolete failed request cannot clear a newer successful total
+ok 11 - an obsolete failed request cannot clear a newer successful total
+  ---
+  duration_ms: 0.08925
+  type: 'test'
+  ...
+# Subtest: disposed authentication observers ignore queued identities and native errors
+ok 12 - disposed authentication observers ignore queued identities and native errors
+  ---
+  duration_ms: 0.873458
+  type: 'test'
+  ...
+# Subtest: an obsolete account profile error cannot replace the current account state
+ok 13 - an obsolete account profile error cannot replace the current account state
+  ---
+  duration_ms: 0.30325
+  type: 'test'
+  ...
+# Subtest: sign-out gives the observer sole ownership of one pending guest creation
+ok 14 - sign-out gives the observer sole ownership of one pending guest creation
+  ---
+  duration_ms: 0.714125
+  type: 'test'
+  ...
+# Subtest: Google links the initiating guest and never falls back to signing in after a collision
+ok 15 - Google links the initiating guest and never falls back to signing in after a collision
+  ---
+  duration_ms: 0.36
+  type: 'test'
+  ...
+# Subtest: Google popup and redirect completion explicitly request the lazy OAuth resolver
+ok 16 - Google popup and redirect completion explicitly request the lazy OAuth resolver
+  ---
+  duration_ms: 0.326125
+  type: 'test'
+  ...
+# Subtest: a Google link result must preserve the initiating UID before metadata is written
+ok 17 - a Google link result must preserve the initiating UID before metadata is written
+  ---
+  duration_ms: 0.2065
+  type: 'test'
+  ...
+# Subtest: a delayed Google popup cannot write metadata after the active account changes
+ok 18 - a delayed Google popup cannot write metadata after the active account changes
+  ---
+  duration_ms: 0.242625
+  type: 'test'
+  ...
+# Subtest: declining analytics never imports, checks support, or initializes the SDK
+ok 19 - declining analytics never imports, checks support, or initializes the SDK
+  ---
+  duration_ms: 2.234041
+  type: 'test'
+  ...
+# Subtest: a decline while the module loads cancels an obsolete acceptance
+ok 20 - a decline while the module loads cancels an obsolete acceptance
+  ---
+  duration_ms: 0.283167
+  type: 'test'
+  ...
+# Subtest: a decline while browser support resolves cannot start Analytics later
+ok 21 - a decline while browser support resolves cannot start Analytics later
+  ---
+  duration_ms: 0.217542
+  type: 'test'
+  ...
+# Subtest: declining stops an existing instance immediately during SDK initialization
+ok 22 - declining stops an existing instance immediately during SDK initialization
+  ---
+  duration_ms: 0.292375
+  type: 'test'
+  ...
+# Subtest: accepting again reuses the existing instance and enables collection
+ok 23 - accepting again reuses the existing instance and enables collection
+  ---
+  duration_ms: 0.209458
+  type: 'test'
+  ...
+# Subtest: only the latest overlapping acceptance may create Analytics
+ok 24 - only the latest overlapping acceptance may create Analytics
+  ---
+  duration_ms: 0.21575
+  type: 'test'
+  ...
+# Subtest: unsupported browsers and server rendering cannot initialize Analytics
+ok 25 - unsupported browsers and server rendering cannot initialize Analytics
+  ---
+  duration_ms: 0.366291
+  type: 'test'
+  ...
+# Subtest: a failed module load remains retryable without re-enabling declined consent
+ok 26 - a failed module load remains retryable without re-enabling declined consent
+  ---
+  duration_ms: 0.405958
+  type: 'test'
+  ...
+# Subtest: guest authentication retains durable persistence without eagerly initializing OAuth
+ok 27 - guest authentication retains durable persistence without eagerly initializing OAuth
+  ---
+  duration_ms: 6.478375
+  type: 'test'
+  ...
+# Subtest: hot reload safely reuses an existing auth instance only for already-initialized
+ok 28 - hot reload safely reuses an existing auth instance only for already-initialized
+  ---
+  duration_ms: 0.27375
+  type: 'test'
+  ...
+# Subtest: unexpected authentication initialization errors propagate instead of falling back
+ok 29 - unexpected authentication initialization errors propagate instead of falling back
+  ---
+  duration_ms: 0.487833
+  type: 'test'
+  ...
+# Subtest: issue payload matches native ownership, raw issue type and new status
+ok 30 - issue payload matches native ownership, raw issue type and new status
+  ---
+  duration_ms: 0.530666
+  type: 'test'
+  ...
+# Subtest: optional empty details are omitted, without inventing a comment
+ok 31 - optional empty details are omitted, without inventing a comment
+  ---
+  duration_ms: 0.063584
+  type: 'test'
+  ...
+# Subtest: all native report form categories are supported without unavailable photo reports
+ok 32 - all native report form categories are supported without unavailable photo reports
+  ---
+  duration_ms: 0.239458
+  type: 'test'
+  ...
+# Subtest: invalid ownership, stop identity or oversized details cannot produce a report
+ok 33 - invalid ownership, stop identity or oversized details cannot produce a report
+  ---
+  duration_ms: 0.174791
+  type: 'test'
+  ...
+# Subtest: submission writes one server-timestamped issue to the shared reports collection
+ok 34 - submission writes one server-timestamped issue to the shared reports collection
+  ---
+  duration_ms: 0.382125
+  type: 'test'
+  ...
+# Subtest: a changed or missing auth session cannot write the previous account's issue
+ok 35 - a changed or missing auth session cannot write the previous account's issue
+  ---
+  duration_ms: 0.405042
+  type: 'test'
+  ...
+# Subtest: contract and network failures remain failures without a second write
+ok 36 - contract and network failures remain failures without a second write
+  ---
+  duration_ms: 0.3965
+  type: 'test'
+  ...
+# Subtest: onboarding completion is versioned and requires an actual completion date
+ok 37 - onboarding completion is versioned and requires an actual completion date
+  ---
+  duration_ms: 5.176791
+  type: 'test'
+  ...
+# Subtest: old, future, malformed and incomplete records require the current welcome guide
+ok 38 - old, future, malformed and incomplete records require the current welcome guide
+  ---
+  duration_ms: 0.243875
+  type: 'test'
+  ...
+# Subtest: denied storage cannot throw or falsely persist completion
+ok 39 - denied storage cannot throw or falsely persist completion
+  ---
+  duration_ms: 0.106834
+  type: 'test'
+  ...
+# Subtest: server rendering never accesses browser storage
+ok 40 - server rendering never accesses browser storage
+  ---
+  duration_ms: 0.078958
+  type: 'test'
+  ...
+# Subtest: a browser that denies access to the localStorage property can still use the guide
+ok 41 - a browser that denies access to the localStorage property can still use the guide
+  ---
+  duration_ms: 0.276667
+  type: 'test'
+  ...
+# Subtest: completion leaves other browser preferences intact and rejects invalid dates
+ok 42 - completion leaves other browser preferences intact and rejects invalid dates
+  ---
+  duration_ms: 0.074459
+  type: 'test'
+  ...
+# Subtest: unmigrated or missing stations report unavailable without claiming zero issues
+ok 43 - unmigrated or missing stations report unavailable without claiming zero issues
+  ---
+  duration_ms: 0.80825
+  type: 'test'
+  ...
+# Subtest: ready stations read only the deidentified public projection and discard private fields
+ok 44 - ready stations read only the deidentified public projection and discard private fields
+  ---
+  duration_ms: 0.57275
+  type: 'test'
+  ...
+# Subtest: missing timestamps and wrong-station signals cannot fabricate recent warnings
+ok 45 - missing timestamps and wrong-station signals cannot fabricate recent warnings
+  ---
+  duration_ms: 0.252459
+  type: 'test'
+  ...
+# Subtest: revoked readiness disposes old signals and ignores already queued snapshots
+ok 46 - revoked readiness disposes old signals and ignores already queued snapshots
+  ---
+  duration_ms: 0.267
+  type: 'test'
+  ...
+# Subtest: parent errors and disposal ignore late reports and identities
+ok 47 - parent errors and disposal ignore late reports and identities
+  ---
+  duration_ms: 0.242416
+  type: 'test'
+  ...
+# Subtest: reads evaluated server summary metrics and progress without recalculating from raw ratings
+ok 48 - reads evaluated server summary metrics and progress without recalculating from raw ratings
+  ---
+  duration_ms: 0.457333
+  type: 'test'
+  ...
+# Subtest: a missing or unevaluated reputation summary is unavailable
+ok 49 - a missing or unevaluated reputation summary is unavailable
+  ---
+  duration_ms: 0.051791
+  type: 'test'
+  ...
+# Subtest: an evaluated new traveler is valid and has no invented badge
+ok 50 - an evaluated new traveler is valid and has no invented badge
+  ---
+  duration_ms: 0.050375
+  type: 'test'
+  ...
+# Subtest: highest level has no further level and keeps its actual supported report count
+ok 51 - highest level has no further level and keeps its actual supported report count
+  ---
+  duration_ms: 0.039833
+  type: 'test'
+  ...
+# Subtest: unknown schema, mismatched owner and invalid level are unavailable
+ok 52 - unknown schema, mismatched owner and invalid level are unavailable
+  ---
+  duration_ms: 0.047583
+  type: 'test'
+  ...
+# Subtest: partial, negative and nonnumeric metrics cannot silently become zero
+ok 53 - partial, negative and nonnumeric metrics cannot silently become zero
+  ---
+  duration_ms: 0.044708
+  type: 'test'
+  ...
+# Subtest: Firestore timestamps are supported and malformed dates are unavailable
+ok 54 - Firestore timestamps are supported and malformed dates are unavailable
+  ---
+  duration_ms: 0.100958
+  type: 'test'
+  ...
+# Subtest: canonical crowd options contain all five iOS values and never quiet
+ok 55 - canonical crowd options contain all five iOS values and never quiet
+  ---
+  duration_ms: 1.885209
+  type: 'test'
+  ...
+# Subtest: station access and layout options serialize canonical iOS values
+ok 56 - station access and layout options serialize canonical iOS values
+  ---
+  duration_ms: 0.159083
+  type: 'test'
+  ...
+# Subtest: nearby accurate fresh location is verified without retaining coordinates
+ok 57 - nearby accurate fresh location is verified without retaining coordinates
+  ---
+  duration_ms: 0.725208
+  type: 'test'
+  ...
+# Subtest: proximity accepts only the base radius plus measured accuracy
+ok 58 - proximity accepts only the base radius plus measured accuracy
+  ---
+  duration_ms: 0.069125
+  type: 'test'
+  ...
+# Subtest: poor and invalid accuracy readings cannot verify a report
+ok 59 - poor and invalid accuracy readings cannot verify a report
+  ---
+  duration_ms: 0.092916
+  type: 'test'
+  ...
+# Subtest: stale, future and missing timestamps cannot verify a report
+ok 60 - stale, future and missing timestamps cannot verify a report
+  ---
+  duration_ms: 0.095625
+  type: 'test'
+  ...
+# Subtest: invalid coordinates do not produce a distance or successful verification
+ok 61 - invalid coordinates do not produce a distance or successful verification
+  ---
+  duration_ms: 0.038125
+  type: 'test'
+  ...
+# Subtest: submission revalidates proximity freshness rather than relying on opening the form
+ok 62 - submission revalidates proximity freshness rather than relying on opening the form
+  ---
+  duration_ms: 0.285834
+  type: 'test'
+  ...
+# Subtest: payload never writes raw GPS coordinates and carries only verification metadata
+ok 63 - payload never writes raw GPS coordinates and carries only verification metadata
+  ---
+  duration_ms: 0.209834
+  type: 'test'
+  ...
+# Subtest: legacy quiet and incomplete report answers cannot be written again
+ok 64 - legacy quiet and incomplete report answers cannot be written again
+  ---
+  duration_ms: 0.246667
+  type: 'test'
+  ...
+# Subtest: ratings outside integer one through five are rejected
+ok 65 - ratings outside integer one through five are rejected
+  ---
+  duration_ms: 0.592875
+  type: 'test'
+  ...
+# Subtest: malformed verification cannot bypass submission validation
+ok 66 - malformed verification cannot bypass submission validation
+  ---
+  duration_ms: 0.2665
+  type: 'test'
+  ...
+# Subtest: known restroom metadata survives and incompatible old enums are rejected
+ok 67 - known restroom metadata survives and incompatible old enums are rejected
+  ---
+  duration_ms: 0.153209
+  type: 'test'
+  ...
+# Subtest: station IDs cannot target nested paths and comments retain the limit
+ok 68 - station IDs cannot target nested paths and comments retain the limit
+  ---
+  duration_ms: 0.101708
+  type: 'test'
+  ...
+# Subtest: lock timestamps match shared thirty-second and fifteen-minute rules
+ok 69 - lock timestamps match shared thirty-second and fifteen-minute rules
+  ---
+  duration_ms: 0.313333
+  type: 'test'
+  ...
+# Subtest: CleanScore includes odor and all shared bonuses, rather than doubling cleanliness
+ok 70 - CleanScore includes odor and all shared bonuses, rather than doubling cleanliness
+  ---
+  duration_ms: 0.145916
+  type: 'test'
+  ...
+# Subtest: each canonical crowd adjustment matches the iOS and backend formulas
+ok 71 - each canonical crowd adjustment matches the iOS and backend formulas
+  ---
+  duration_ms: 0.057083
+  type: 'test'
+  ...
+# Subtest: legacy quiet reviews score like light without allowing quiet in new submissions
+ok 72 - legacy quiet reviews score like light without allowing quiet in new submissions
+  ---
+  duration_ms: 0.044875
+  type: 'test'
+  ...
+# Subtest: CleanScore is capped at ten and unavailable for malformed rating data
+ok 73 - CleanScore is capped at ten and unavailable for malformed rating data
+  ---
+  duration_ms: 0.2405
+  type: 'test'
+  ...
+# Subtest: CleanScore badges match the exact iOS quality boundaries before rounding
+ok 74 - CleanScore badges match the exact iOS quality boundaries before rounding
+  ---
+  duration_ms: 0.288458
+  type: 'test'
+  ...
+# Subtest: missing and invalid CleanScores never receive a quality recommendation
+ok 75 - missing and invalid CleanScores never receive a quality recommendation
+  ---
+  duration_ms: 0.100791
+  type: 'test'
+  ...
+# Subtest: missing and malformed station scores stay unavailable rather than becoming zero
+ok 76 - missing and malformed station scores stay unavailable rather than becoming zero
+  ---
+  duration_ms: 0.426833
+  type: 'test'
+  ...
+# Subtest: valid station scores retain the original quality band without display rounding
+ok 77 - valid station scores retain the original quality band without display rounding
+  ---
+  duration_ms: 0.138
+  type: 'test'
+  ...
+# Subtest: a stop without any reports stays unrated even when it stores an initial zero
+ok 78 - a stop without any reports stays unrated even when it stores an initial zero
+  ---
+  duration_ms: 0.037042
+  type: 'test'
+  ...
+1..78
+# tests 78
+# suites 0
+# pass 78
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 364.256041

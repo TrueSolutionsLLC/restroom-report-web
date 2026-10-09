@@ -1,0 +1,891 @@
+{
+  "checkedAt": "2026-10-08T17:15:01.340Z",
+  "projectId": "cleanstop-fa6ee",
+  "authenticated": false,
+  "scope": "all-public-stations",
+  "summary": {
+    "stationCount": 97,
+    "mismatchCount": 24,
+    "seedIdMismatchCount": 24,
+    "positiveStoredZeroActualCount": 22,
+    "missingCreatedAtStationCount": 0,
+    "totalStoredRatings": 905,
+    "totalActualRatings": 48,
+    "mismatchesMatchingExactMockScoreAndCount": 24
+  },
+  "stations": [
+    {
+      "id": "06Dh7jId5Drc2YC3Vwup",
+      "name": "bp",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "0DqjA8i13xnYQZE7K0ve",
+      "name": "Speedway",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "0UToc3yZyrx12oBB5y4a",
+      "name": "bp",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "37Bd1pujjStxq901E0Ux",
+      "name": "Maverik",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "39FL6qwHqMhznjQPCS3h",
+      "name": "Casey's Gas Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 8.45,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "3MrQLkfTHRjPoEFSqv46",
+      "name": "Shell",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "3p6enErNU9P22Lyh9XKn",
+      "name": "Chevron",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "4qqjsJIpF8Nxi8ziA8BH",
+      "name": "KFC",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "4VjbDmT9iGDPSRHa4uzI",
+      "name": "Love's Travel Stop",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "5wxIP1XUfx4ad5W23HHg",
+      "name": "AVIA",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "6UJjivBEAl3wIkBGkGTd",
+      "name": "Exxon",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "75T9HGgW3rsClHQbexSy",
+      "name": "Mobil",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 8.45,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "adWlc66QA2Va1wH1Xyyg",
+      "name": "Mobil",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "aiw4I7nLY95tsI7J3qjy",
+      "name": "Shell",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "BaMcQTrh6Pvtio18KYKx",
+      "name": "bp",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "bGfpbJ9am2aFoTlgTpz6",
+      "name": "Mobil",
+      "storedCount": 2,
+      "actualCount": 2,
+      "createdAtOrderedCount": 2,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "CmVckfWCyuZYHkPd61iw",
+      "name": "Phillips 66",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 8.15,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "elRmtkiY7ohlHR3PvjVJ",
+      "name": "Circle K | Gas Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "EprUJFRpqUqkztUz4gZv",
+      "name": "7-Eleven Fuel Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 4.55,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "EwJOSqKkkiLYl3GYVL83",
+      "name": "GasPetroleum",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "f2e7dlQeCIYJdM7xVrF1",
+      "name": "Circle K - Gas Station",
+      "storedCount": 3,
+      "actualCount": 3,
+      "createdAtOrderedCount": 3,
+      "score": 7.166666666666667,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "FxYKjLci7CTveYbaPElM",
+      "name": "Circle K - Gas Station",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "g0sMQABc45VbrOwMadBC",
+      "name": "Love's Travel Stop",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "g4Lox8tPxW0fSoHWyHc1",
+      "name": "Casey's Gas Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 7.6,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "g4ZaEXBMDzmJQz73WxeL",
+      "name": "Lamoni Rest Area #34",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "gGjaz9lR9iUX7SLnYYqi",
+      "name": "McDonald's",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "h9V75617sB2TTvhREZhr",
+      "name": "Mobil",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "HmaiDOfd8pr5HUab0opZ",
+      "name": "McDonald's",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "i21wTjnTFR7b3vZ2chcs",
+      "name": "Chevron",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "i8BoGSIFdCmAutCHRJKQ",
+      "name": "Country Mart",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 7.6,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "JMvKckXIG1Qkm2T1euPu",
+      "name": "Repsol",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "jVlR992NcbuI8weyaofK",
+      "name": "Casey's Gas Station",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "kgWy5DXNHjO9DwlKIsvF",
+      "name": "Rotten Robbie",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "KXoLUPdek1yPsiKOnXY7",
+      "name": "QuikTrip",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "mjRSvenhseBBGKD3SiD5",
+      "name": "Mobil",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "msLQoADy88hHm86W1Gmq",
+      "name": "Wally's",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "mvE6B3EXSJNT8zsGHjZI",
+      "name": "76",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "n3mqN1P8zHFJszJKQtdA",
+      "name": "Circle K - Gas Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 8.6,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "NjSmtVk2YUx6LhwbWNsa",
+      "name": "Casey's Gas Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 5.199999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "nqckDxtwlnQjYcGHdLvD",
+      "name": "bp",
+      "storedCount": 4,
+      "actualCount": 4,
+      "createdAtOrderedCount": 4,
+      "score": 9.1125,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "nrBm5kU0h3B639qwhYS6",
+      "name": "\ufffcCasey's",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "NXsStZ4dbMoIgAKmHF90",
+      "name": "Hy-Vee Gas",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "oHEDxJqBpzxP54QRTsSj",
+      "name": "Quick Trip",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "OvPvdSEm7Catbx5JOORV",
+      "name": "Petroprix",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "oY6ecWtwlRGD0Xo8yGbb",
+      "name": "Esso",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "pAHqLMgz4o17MIZ7txcP",
+      "name": "QuikTrip",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 7.449999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "pyTZOYtihdLfViDITFCJ",
+      "name": "BP",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "Q0ZH26pdaY05QxEAarS4",
+      "name": "Sinclair",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "q16C8PWu5sO9yFS90q0H",
+      "name": "Stevens Creek Unocal",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "Q5mbxXU1QWOTCs4cvh7P",
+      "name": "Shell",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 6.049999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "R4EA71FULJGTg1W82Za4",
+      "name": "24 Hour Fuel",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 7.399999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "RePbVFpzj4JxbUuGGzqh",
+      "name": "Murphy USA",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 8.549999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "ROnFsoZKFUnXrshQR9mO",
+      "name": "Pilot Travel Center",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "RZ5QCVNORfwByb8cVCCl",
+      "name": "Jordan's Kwik Stop",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 6.449999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "rZBQ4NfpFGA0b4FyIzET",
+      "name": "Casey's Gas Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "slv63iCdugNWKWQx7xi6",
+      "name": "McDonald's",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "soR061wN2b3WmfnNSFXK",
+      "name": "Exxon",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 7.299999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "station-bp-florissant",
+      "name": "BP",
+      "storedCount": 17,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 6.1,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-caseys-chesterfield",
+      "name": "Casey's General Store",
+      "storedCount": 21,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 5.8,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-circlek-maplewood",
+      "name": "Circle K",
+      "storedCount": 14,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 4.6,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-faststop-hazelwood",
+      "name": "Fast Stop",
+      "storedCount": 12,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 4.9,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-flyingj-collinsville",
+      "name": "Flying J Travel Plaza",
+      "storedCount": 38,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 6.9,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-loves-ofallon",
+      "name": "Love's Travel Stop #456",
+      "storedCount": 47,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 8.6,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-loves-wentzville",
+      "name": "Love's Travel Stop #312",
+      "storedCount": 71,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 9.1,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-loves-wrightcity",
+      "name": "Love's Travel Stop #289",
+      "storedCount": 44,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 8.4,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-maverik-kirkwood",
+      "name": "Maverik",
+      "storedCount": 41,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 8,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-mobil-manchester",
+      "name": "Mobil",
+      "storedCount": 25,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 6.6,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-motomart-affton",
+      "name": "Moto Mart",
+      "storedCount": 16,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 5.2,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-petro-granitecity",
+      "name": "Petro Stopping Center",
+      "storedCount": 33,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 6.2,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-phillips66-clayton",
+      "name": "Phillips 66",
+      "storedCount": 24,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 7.2,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-pilot-fairviewheights",
+      "name": "Pilot Travel Center",
+      "storedCount": 9,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 3.4,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-pilot-kingdomcity",
+      "name": "Pilot Travel Center",
+      "storedCount": 51,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 7,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-pilot-stcharles",
+      "name": "Pilot Travel Center",
+      "storedCount": 62,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 7.8,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-quiktrip-downtown",
+      "name": "QuikTrip #1478",
+      "storedCount": 89,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 8.2,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-racetrac-edwardsville",
+      "name": "RaceTrac",
+      "storedCount": 22,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 6.8,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-roadranger-columbia",
+      "name": "Road Ranger Travel Center",
+      "storedCount": 48,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 7.5,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-sams-fenton",
+      "name": "Sam's Club Fuel",
+      "storedCount": 2,
+      "actualCount": 2,
+      "createdAtOrderedCount": 2,
+      "score": 5.8,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-sapp-peruque",
+      "name": "Sapp Bros Travel Center",
+      "storedCount": 34,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 7.3,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-shell-brentwood",
+      "name": "Shell",
+      "storedCount": 28,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 7.4,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-speedway-belleville",
+      "name": "Speedway",
+      "storedCount": 19,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 5.5,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-ta-oakgrove",
+      "name": "TA Travel Center",
+      "storedCount": 39,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 6.5,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "station-ta-troy",
+      "name": "TA Travel Center",
+      "storedCount": 55,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 7.1,
+      "matchesMockSeedId": true
+    },
+    {
+      "id": "SXQRhegUcAxRbsod0P0f",
+      "name": "Casey's Gas Station",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "tTG2K0mgTUkjkpyHflgm",
+      "name": "Love's Travel Stop",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "UA5FraKykJsU23uGrTl5",
+      "name": "McDonald's",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 10,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "uCgUCnKUb5OlFteYA9a2",
+      "name": "Jack in the Box",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 3.5500000000000003,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "umfLqwUDO6oXx8Isiln3",
+      "name": "BP",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 7.449999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "uoDfBCRw7HZUEJpoTaPN",
+      "name": "Chevron",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "VRqTNaMbyejKbJMj2as0",
+      "name": "Phillips 66",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "vu8n7tdFVrsxzZOQqLXK",
+      "name": "Phillips 66",
+      "storedCount": 3,
+      "actualCount": 3,
+      "createdAtOrderedCount": 3,
+      "score": 6.383333333333333,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "W1k4F5YPr7LXCAtS8zHC",
+      "name": "Circle K - Gas Station",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "WIIwYF1YRoMGvrkcgT9f",
+      "name": "Phillips 66",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "wklmzDchI5BshtdHFhAz",
+      "name": "Chevron",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "X41BEuAhug3mZquIkGXm",
+      "name": "The Junction",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 7.299999999999999,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "xbJG7uGwqLjwjFE3M6sn",
+      "name": "Circle K - Gas Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 4.3999999999999995,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "YCENlorleeTYPiae8qE7",
+      "name": "Circle K - Gas Station",
+      "storedCount": 1,
+      "actualCount": 1,
+      "createdAtOrderedCount": 1,
+      "score": 2.75,
+      "matchesMockSeedId": false
+    },
+    {
+      "id": "YYppWHKnQMxgyt8P4vnZ",
+      "name": "GM Oil",
+      "storedCount": 0,
+      "actualCount": 0,
+      "createdAtOrderedCount": 0,
+      "score": 0,
+      "matchesMockSeedId": false
+    }
+  ]
+}
