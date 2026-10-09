@@ -12,14 +12,16 @@ import type { MapViewport, RestroomMapProps } from "./mapTypes";
 
 type AppleMap = InstanceType<MapKit["Map"]>;
 
-// Pin color reflects rating status (rated vs. unrated), not category.
+// Match the shared score recommendation tiers; category is shown separately.
 const colors: Record<string, string> = {
-  rated: "#30b256",
+  good: "#30b256",
+  fair: "#d9931f",
+  poor: "#d94b59",
   unrated: "#f08a32",
 };
 
 function pinLabel(place: LivePlace) {
-  return place.score === null ? "?" : String(place.score);
+  return place.score?.toFixed(1) ?? "?";
 }
 
 function updatePinElement(element: HTMLElement, place: LivePlace, active: boolean) {
