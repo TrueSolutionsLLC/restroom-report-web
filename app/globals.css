@@ -156,7 +156,7 @@ h1, h2, h3, h4 { line-height: 1.15; }
 .place-marker.marker-tone-fair { --pin-fill: var(--warning); --pin-stroke: var(--warning); }
 .place-marker.marker-tone-poor { --pin-fill: var(--danger); --pin-stroke: var(--danger); }
 .place-marker.active { transform: translateY(-2px) scale(1.06); }
-.place-marker-art { display: block; width: 48px; height: 58px; overflow: visible; fill: none; stroke: none; }
+.place-marker-art { pointer-events: none; display: block; width: 48px; height: 58px; overflow: visible; fill: none; stroke: none; }
 .place-marker-body { fill: var(--pin-fill); stroke: var(--pin-stroke); stroke-width: 2; stroke-linejoin: round; }
 .place-marker-halo { fill: none; stroke: var(--jade); stroke-width: 9; stroke-linejoin: round; opacity: 0; }
 .place-marker.active .place-marker-halo { opacity: .38; }
