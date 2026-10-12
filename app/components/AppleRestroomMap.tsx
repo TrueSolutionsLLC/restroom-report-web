@@ -8,34 +8,22 @@ import type {
 } from "@apple/mapkit-loader";
 import type { LivePlace } from "../lib/firestore";
 import { loadAppleMaps } from "../lib/mapkit";
+import { placeMarkerClass, placeMarkerLabel, placeMarkerMarkup } from "../lib/locationMarkers";
 import type { MapViewport, RestroomMapProps } from "./mapTypes";
 
 type AppleMap = InstanceType<MapKit["Map"]>;
 
-// Match the shared score recommendation tiers; category is shown separately.
-const colors: Record<string, string> = {
-  good: "#30b256",
-  fair: "#d9931f",
-  poor: "#d94b59",
-  unrated: "#f08a32",
-};
-
-function pinLabel(place: LivePlace) {
-  return place.score?.toFixed(1) ?? "?";
-}
-
 function updatePinElement(element: HTMLElement, place: LivePlace, active: boolean) {
-  element.className = `apple-restroom-pin${active ? " active" : ""}`;
-  element.style.setProperty("--pin-color", colors[place.color] ?? colors.unrated);
-  element.setAttribute("aria-label", `${place.name}, ${place.score === null ? "unrated" : `${pinLabel(place)} out of 10`}`);
-  const label = element.querySelector<HTMLElement>(".apple-restroom-pin-label");
-  if (label) label.textContent = pinLabel(place);
+  element.className = `apple-restroom-pin ${placeMarkerClass(place, active)}`;
+  element.setAttribute("aria-label", placeMarkerLabel(place, active));
+  element.setAttribute("aria-pressed", String(active));
+  const markup = placeMarkerMarkup(place);
+  if (element.innerHTML !== markup) element.innerHTML = markup;
 }
 
 function restroomPinElement(place: LivePlace, selectPlaceById: (placeId: string) => void) {
   const element = document.createElement("button");
   element.type = "button";
-  element.innerHTML = '<span class="apple-restroom-pin-label"></span>';
   updatePinElement(element, place, false);
 
   let start: { x: number; y: number; pointerId: number } | null = null;
@@ -264,7 +252,7 @@ export default function AppleRestroomMap({
             calloutEnabled: false,
             enabled: true,
             animates: false,
-            size: { width: 46, height: 54 },
+            size: { width: 48, height: 58 },
             collisionMode: mapkit.AnnotationCollisionMode.Circle,
             data: { placeId: place.id },
           },
@@ -279,7 +267,7 @@ export default function AppleRestroomMap({
       annotation.coordinate = { latitude: place.latitude, longitude: place.longitude };
       annotation.title = place.name;
       annotation.subtitle = place.address || place.type;
-      annotation.accessibilityLabel = `${place.name}, ${place.score === null ? "unrated" : `${pinLabel(place)} out of 10`}`;
+      annotation.accessibilityLabel = placeMarkerLabel(place, active);
       annotation.data = { placeId: place.id };
       annotation.enabled = true;
       updatePinElement(annotation.element, place, active);
@@ -315,13 +303,17 @@ export default function AppleRestroomMap({
       if (previous) {
         previous.displayPriority = mapkit.AnnotationDisplayPriority.High;
         const previousPlace = placesByIdRef.current.get(previousId);
-        if (previousPlace) updatePinElement(previous.element, previousPlace, false);
+        if (previousPlace) {
+          updatePinElement(previous.element, previousPlace, false);
+          previous.accessibilityLabel = placeMarkerLabel(previousPlace, false);
+        }
       }
     }
     const annotation = selected?.id ? placeAnnotationsRef.current.get(selected.id) ?? null : null;
     if (annotation) {
       annotation.displayPriority = mapkit.AnnotationDisplayPriority.Required;
       updatePinElement(annotation.element, selected!, true);
+      annotation.accessibilityLabel = placeMarkerLabel(selected!, true);
     }
     if (map.selectedAnnotation !== annotation) map.selectedAnnotation = annotation;
   }, [ready, selected]);

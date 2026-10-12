@@ -8,6 +8,8 @@ import type { User } from "firebase/auth";
 import { setFirebaseAnalyticsConsent } from "./lib/firebase";
 import AppDialog from "./components/AppDialog";
 import WelcomeGuide from "./components/WelcomeGuide";
+import PlaceCategoryIcon from "./components/PlaceCategoryIcon";
+import { placeReportState, placeReportLabel, placeReportAction } from "./lib/locationMarkers";
 import { hasCompletedWelcomeGuide, completeWelcomeGuide } from "./lib/onboarding";
 import { ISSUE_REPORT_OPTIONS, type IssueReportType } from "./lib/issueReportContract";
 import { geocodeAppleMaps, isAppleMapsConfigured, searchAppleMaps, searchAppleMapsPois, type AppleMapsPoiResult } from "./lib/mapkit";
@@ -74,9 +76,11 @@ function Icon({ name }: { name: string }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function CleanScoreSignal({ score }: { score: number | null }) {
-  return <div className={`score-signal ${cleanScoreBadge(score).tone}`}>
-    <strong>{score?.toFixed(1) ?? "—"}</strong><span>{score === null ? "Unrated" : "CleanScore / 10"}</span>
+function CleanScoreSignal({ place, compact = false }: { place: LivePlace; compact?: boolean }) {
+  const state = placeReportState(place);
+  return <div className={`${compact ? "score" : "score-signal"} ${place.color} marker-status-${state}`}>
+    {state === "rated" ? <strong>{place.score!.toFixed(1)}</strong> : <PlaceCategoryIcon type={place.type}/>}
+    <span>{state !== "rated" ? placeReportLabel(place) : compact ? `${place.reports} rating${place.reports === 1 ? "" : "s"}` : "CleanScore / 10"}</span>
   </div>;
 }
 
@@ -609,7 +613,7 @@ export default function Home() {
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const result = places.filter(place => (filter === "All" || place.type === filter) && (!needle || `${place.name} ${place.address} ${place.city} ${place.state} ${place.type}`.toLowerCase().includes(needle)));
+    const result = places.filter(place => (filter === "All" || place.type === filter || (filter === "Truck stop" && place.type === "Travel center")) && (!needle || `${place.name} ${place.address} ${place.city} ${place.state} ${place.type}`.toLowerCase().includes(needle)));
     const origin = mapCenter;
     return [...result].sort((a, b) => milesBetween(origin, a) - milesBetween(origin, b));
   }, [places, filter, query, mapCenter]);
@@ -965,19 +969,21 @@ export default function Home() {
         <span className="card-drag-handle" aria-hidden="true"/>
         <button className="card-close" onClick={() => setSelected(null)} aria-label="Close"><Icon name="close"/></button>
         <button className="card-open" onClick={() => navigatePanel("detail")} aria-label="Open restroom details"><Icon name="chevron"/></button>
-        <div className="card-head"><span className={`type-dot ${selected.color}`}/><span>{selected.type}</span><span className={`status-chip ${selected.status === "Status not confirmed" ? "unknown" : ""}`}>{selected.status}</span></div>
-        <div className="card-main"><div><h2>{selected.name}</h2><p>{userCoords ? `${milesBetween(userCoords, selected).toFixed(1)} mi · ` : ""}{selected.address || "Address unavailable"}</p></div><div className={`score ${selected.color}`}><strong>{selected.score?.toFixed(1) ?? "—"}</strong><span>{selected.score === null ? "Unrated" : selected.reports ? `${selected.reports} rating${selected.reports === 1 ? "" : "s"}` : "CleanScore"}</span></div></div>
-        <div className="actions"><button onClick={() => directions(selected)}><Icon name="route"/>Directions</button><button className="primary" onClick={openRating}><Icon name="star"/>Rate restroom</button></div>
+        <div className="card-head"><PlaceCategoryIcon type={selected.type}/><span>{selected.type}</span><span className={`status-chip ${selected.status === "Status not confirmed" ? "unknown" : ""}`}>{selected.status}</span></div>
+        <div className="card-main"><div><h2>{selected.name}</h2><p>{userCoords ? `${milesBetween(userCoords, selected).toFixed(1)} mi · ` : ""}{selected.address || "Address unavailable"}</p></div><CleanScoreSignal place={selected} compact/></div>
+        {selected.source === "appleMaps" && <p className="place-report-context">Restroom details haven’t been reported here.</p>}
+        <div className="actions"><button onClick={() => directions(selected)}><Icon name="route"/>Directions</button><button className="primary" disabled={busy || reviewBusy} onClick={openRating}><Icon name={selected.source === "appleMaps" ? "plus" : "star"}/>{placeReportAction(selected)}</button></div>
       </aside> : <aside className="discovery-card"><span className="discovery-icon"><Icon name="locate"/></span><div><strong>Find a better stop</strong><p>{wideZoom ? "Search a city, tap Near me, or use Zoom in & search." : "Move the map, then tap Search this area."}</p></div></aside>)}
 
       {mainView === "list" && <section className="full-list">
         <div className="full-list-header"><h2>{loadingPlaces ? "Loading…" : `${filtered.length} stop${filtered.length === 1 ? "" : "s"} in this area`}</h2><button className="add-fab" onClick={() => navigatePanel("add")}><Icon name="plus"/><span>Add</span></button></div>
         <div className="place-list">{loadingPlaces ? <div className="loading-list">Loading live restroom data…</div> : filtered.length ? filtered.map(place => {
           const distance = userCoords ? `${milesBetween(userCoords, place).toFixed(1)} mi away` : "";
-          const freshness = place.reports === 0 ? "Needs first report" : `${place.reports} traveler report${place.reports === 1 ? "" : "s"}`;
+          const reportState = placeReportState(place);
+          const freshness = reportState === "discovered" ? "Restroom details haven’t been reported here." : reportState === "unrated" ? "Be the first to rate" : `${place.reports} traveler report${place.reports === 1 ? "" : "s"}`;
           return <button key={place.id} onClick={() => selectPlace(place, true)}>
-            <span className={`mini-score ${place.color}`}>{place.score?.toFixed(1) ?? "?"}<small>{cleanScoreBadge(place.score).label}</small></span>
-            <span><strong>{place.name}</strong><small className="place-brand">{place.name.split(" - ")[0]}</small><small className={`place-type ${place.type.toLowerCase().replaceAll(" ", "-")}`}>{place.type}{distance && <> <i>·</i> {distance}</>}</small><small className="place-address">{place.address || "Address unavailable"}</small><em className={place.reports === 0 ? "first" : place.reports < 2 ? "fresh" : "reported"}>{freshness}</em></span>
+            <span className={`mini-score ${place.color} marker-status-${reportState}`}>{placeReportState(place) === "rated" ? place.score!.toFixed(1) : <PlaceCategoryIcon type={place.type}/>}<small>{placeReportLabel(place)}</small></span>
+            <span><strong>{place.name}</strong><small className="place-brand">{place.name.split(" - ")[0]}</small><small className={`place-type ${place.type.toLowerCase().replaceAll(" ", "-")}`}>{place.type}{distance && <> <i>·</i> {distance}</>}</small><small className="place-address">{place.address || "Address unavailable"}</small><em className={reportState === "discovered" || reportState === "unrated" ? "first" : place.reports < 2 ? "fresh" : "reported"}>{freshness}</em></span>
             <Icon name="chevron"/>
           </button>;
         }) : wideZoom ? <div className="empty-state"><div>⌕</div><h3>Choose a local area</h3><p>Search a city, tap Near me, or use Zoom in & search on the map.</p></div> : <div className="empty-state"><div>⌕</div><h3>No matches yet</h3><p>Try another search or add the missing location.</p><button className="submit" onClick={() => navigatePanel("add")}>Add this place</button></div>}</div>
@@ -1008,18 +1014,18 @@ export default function Home() {
               <p>{selected.address || "Address unavailable"}</p>
               {userCoords && <em>{milesBetween(userCoords, selected).toFixed(1)} mi away</em>}
             </div>
-            <CleanScoreSignal score={selected.score}/>
+            <CleanScoreSignal place={selected}/>
           </div>
-          <div className="confidence-banner"><Icon name="info"/>{cleanScoreBadge(selected.score).label} · {selected.reports} rating{selected.reports === 1 ? "" : "s"}</div>
+          <div className="confidence-banner"><Icon name="info"/>{selected.source === "appleMaps" ? "Restroom details haven’t been reported here." : placeReportState(selected) === "unrated" ? "No ratings yet. Be the first to share a report when you visit." : `${placeReportLabel(selected)} · ${selected.reports} rating${selected.reports === 1 ? "" : "s"}`}</div>
           <div className="detail-tags"><span className="tag">{selected.type}</span><span className="tag muted">{selected.accessType}</span></div>
-          <div className="detail-stats">
+          {selected.source !== "appleMaps" && <div className="detail-stats">
             <span><b>{activeStation?.reviewsError ? "Unavailable" : activeStation?.reviewsReady ? reviews.length : "…"}</b><small>Latest ratings</small></span>
             <span><b>{activeStation?.reportsError ? "Unavailable" : activeStation?.reportsReady ? stationIssueReports.length : "…"}</b><small>Recent issues</small></span>
             <span><b>{reviews[0] ? relativeTime(reviews[0].createdAt) : "—"}</b><small>Last review</small></span>
-          </div>
+          </div>}
         </div>
 
-        <div className="detail-actions"><button onClick={() => directions(selected)}><Icon name="route"/>Directions</button><button onClick={openRating}><Icon name="star"/>Rate</button>{selected.source === "firestore" && <button onClick={shareStop}><Icon name="share"/>Share</button>}</div>
+        <div className="detail-actions"><button onClick={() => directions(selected)}><Icon name="route"/>Directions</button><button disabled={busy || reviewBusy} onClick={openRating}><Icon name={selected.source === "appleMaps" ? "plus" : "star"}/>{placeReportAction(selected)}</button>{selected.source === "firestore" && <button onClick={shareStop}><Icon name="share"/>Share</button>}</div>
 
         {sharedStop?.id === selected.id && <label className="form-label share-link">Link to this stop<input readOnly value={sharedStop.url} onFocus={event => event.target.select()}/></label>}
 
@@ -1038,7 +1044,7 @@ export default function Home() {
           <button className={isAvoided ? "active" : ""} onClick={toggleAvoid} disabled={!user}><Icon name="flag"/>{isAvoided ? "Avoided" : "Avoid"}</button>
         </div>
 
-        <section className="reviews"><div className="section-title"><h3>Latest ratings</h3><button disabled={reviewBusy} onClick={openRating}>Add yours</button></div>{!activeStation?.reviewsReady ? <p role="status">Loading reports…</p> : activeStation.reviewsError ? <p role="alert">Reports are unavailable. Check your connection and reopen this stop to retry.</p> : reviews.length ? reviews.slice(0, 8).map(review => <article key={review.id}><div><span className="review-score">{review.cleanlinessRating}.0</span><strong>{"★".repeat(Math.max(0, Math.min(5, review.cleanlinessRating)))}{"☆".repeat(Math.max(0, 5 - review.cleanlinessRating))}</strong><time>{review.createdAt?.toLocaleDateString() ?? "Date unavailable"}</time></div>{review.comment && <p>“{review.comment}”</p>}<small>{[review.soapAvailable && "Soap", review.toiletPaperAvailable && "Paper", review.feltSafe && "Felt safe"].filter(Boolean).join(" • ") || "Quick community report"}</small></article>) : <div className="no-reviews"><span>★</span><h4>No report details available</h4><p>Add a fresh report when you visit.</p></div>}</section>
+        <section className="reviews"><div className="section-title"><h3>Latest ratings</h3><button disabled={busy || reviewBusy} onClick={openRating}>{selected.source === "appleMaps" ? "Add this stop" : "Add yours"}</button></div>{selected.source === "appleMaps" ? <div className="no-reviews"><PlaceCategoryIcon type={selected.type}/><h4>Not added yet</h4><p>Add this stop with a report when you visit.</p></div> : !activeStation?.reviewsReady ? <p role="status">Loading reports…</p> : activeStation.reviewsError ? <p role="alert">Reports are unavailable. Check your connection and reopen this stop to retry.</p> : reviews.length ? reviews.slice(0, 8).map(review => <article key={review.id}><div><span className="review-score">{review.cleanlinessRating}.0</span><strong>{"★".repeat(Math.max(0, Math.min(5, review.cleanlinessRating)))}{"☆".repeat(Math.max(0, 5 - review.cleanlinessRating))}</strong><time>{review.createdAt?.toLocaleDateString() ?? "Date unavailable"}</time></div>{review.comment && <p>“{review.comment}”</p>}<small>{[review.soapAvailable && "Soap", review.toiletPaperAvailable && "Paper", review.feltSafe && "Felt safe"].filter(Boolean).join(" • ") || "Quick community report"}</small></article>) : <div className="no-reviews"><PlaceCategoryIcon type={selected.type}/><h4>{placeReportState(selected) === "unrated" ? "No ratings yet" : "No report details available"}</h4><p>{placeReportState(selected) === "unrated" ? "Be the first to share a report when you visit." : "Add a fresh report when you visit."}</p></div>}</section>
       </>}
 
       {panel === "toofar" && selected && <div className="toofar-block">
@@ -1050,7 +1056,7 @@ export default function Home() {
         <button className="text-button" onClick={() => directions(selected)}>Directions to {selected.name}</button>
       </div>}
 
-      {panel === "rate" && selected && !submitted && <><p className="eyebrow">Your visit</p><h2>How was {selected.name}?</h2><p className="muted">Complete the required checks. Comments are optional.</p>
+      {panel === "rate" && selected && !submitted && <><p className="eyebrow">Your visit</p><h2>How was {selected.name}?</h2><p className="muted">{selected.source === "appleMaps" ? "Your first report adds this stop to Restroom Report. Complete the required checks. Comments are optional." : "Complete the required checks. Comments are optional."}</p>
         <div className="rating-block"><label id="cleanliness-label">Cleanliness <b>{rating ? `${rating}/5` : "Required"}</b></label><div className="stars" role="group" aria-labelledby="cleanliness-label">{[1,2,3,4,5].map(value => <button key={value} className={rating >= value ? "on" : ""} onClick={() => setRating(value)} aria-label={`Cleanliness: ${value} of 5`} aria-pressed={rating === value}><Icon name="star"/></button>)}</div></div>
         <div className="rating-block"><label id="odor-label">Odor <b>{odor ? `${odor}/5` : "Required"}</b></label><div className="odor-scale" role="group" aria-labelledby="odor-label">{[1,2,3,4,5].map(value => <button key={value} className={odor === value ? "on" : ""} onClick={() => setOdor(value)} aria-pressed={odor === value} aria-label={`Odor: ${["Very unpleasant", "Unpleasant", "Neutral", "Fresh", "Very fresh"][value-1]}`}><span>{value}</span><small>{["Very poor", "Poor", "Neutral", "Fresh", "Very fresh"][value-1]}</small></button>)}</div></div>
         <label className="field-label">Quick checks <b>Yes or no</b></label><div className="answer-grid">{CHECKS.map(item => <div key={item.key}><span>{item.label}</span><button className={answers[item.key] === true ? "yes active" : "yes"} aria-label={`${item.label}: Yes`} aria-pressed={answers[item.key] === true} onClick={() => setAnswers(current => ({ ...current, [item.key]: true }))}>Yes</button><button className={answers[item.key] === false ? "no active" : "no"} aria-label={`${item.label}: No`} aria-pressed={answers[item.key] === false} onClick={() => setAnswers(current => ({ ...current, [item.key]: false }))}>No</button></div>)}</div>
@@ -1100,7 +1106,7 @@ export default function Home() {
           {allPlacesError && <div className="account-sync error" role="alert">Stop details could not be refreshed.<button className="text-button" onClick={() => setStationRefresh(value => value + 1)}>Retry stop details</button></div>}
           <div className="saved-list place-list">{(savedTab === "favorites" ? userProfile?.favoriteStationIds ?? [] : userProfile?.avoidedStationIds ?? []).map(id => {
             const place = allPlaces.find(item => item.id === id);
-            return <article className="saved-stop" key={id}>{place ? <button className="saved-stop-open" onClick={() => selectPlace(place, true)}><span className={`mini-score ${place.color}`}>{place.score?.toFixed(1) ?? "—"}</span><span><strong>{place.name}</strong><small>{place.address || "Address unavailable"}</small><em>{cleanScoreBadge(place.score).label}</em></span><Icon name="chevron"/></button> : <div className="saved-stop-missing"><strong>Location unavailable</strong><p>This stop may have been removed, or its details could not load.</p></div>}<button className="text-button" onClick={async () => { if (!user) return; try { if (savedTab === "favorites") await setStationFavorited(user.uid, id, false); else await setStationAvoided(user.uid, id, false); } catch { notify("The list couldn’t be updated. Please try again."); } }} aria-label={place ? `Remove ${place.name} from ${savedTab === "favorites" ? "Saved" : "Avoid"}` : "Remove unavailable stop"}>Remove</button></article>;
+            return <article className="saved-stop" key={id}>{place ? <button className="saved-stop-open" onClick={() => selectPlace(place, true)}><span className={`mini-score ${place.color} marker-status-${placeReportState(place)}`}>{placeReportState(place) === "rated" ? place.score!.toFixed(1) : <PlaceCategoryIcon type={place.type}/>}</span><span><strong>{place.name}</strong><small>{place.address || "Address unavailable"}</small><em>{placeReportLabel(place)}</em></span><Icon name="chevron"/></button> : <div className="saved-stop-missing"><strong>Location unavailable</strong><p>This stop may have been removed, or its details could not load.</p></div>}<button className="text-button" onClick={async () => { if (!user) return; try { if (savedTab === "favorites") await setStationFavorited(user.uid, id, false); else await setStationAvoided(user.uid, id, false); } catch { notify("The list couldn’t be updated. Please try again."); } }} aria-label={place ? `Remove ${place.name} from ${savedTab === "favorites" ? "Saved" : "Avoid"}` : "Remove unavailable stop"}>Remove</button></article>;
           })}</div>
           {!(savedTab === "favorites" ? userProfile?.favoriteStationIds.length : userProfile?.avoidedStationIds.length) && <div className="empty-state"><div><Icon name={savedTab === "favorites" ? "bookmark" : "flag"}/></div><h3>{savedTab === "favorites" ? "A good stop is worth saving." : "Remember where to skip."}</h3><p>{savedTab === "favorites" ? "Open a stop and tap Save. It’ll be here for your next trip." : "Mark a stop Avoid in its details. This list is just for you."}</p><button className="submit" onClick={dismissPanel}>Explore the map</button></div>}
         </>}

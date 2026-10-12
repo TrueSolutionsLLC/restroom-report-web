@@ -164,7 +164,29 @@ export type GeoBounds = {
   east: number;
 };
 
-const displayType = (raw: string) => ({ gasStation: "Gas station", travelCenter: "Truck stop", truckStop: "Truck stop", restArea: "Rest area", fastFood: "Fast food" }[raw] ?? "Gas station");
+const displayType = (raw: unknown): string | undefined => {
+  const labels: Record<string, string> = {
+    gasStation: "Gas station",
+    truckStop: "Truck stop",
+    travelCenter: "Travel center",
+    restArea: "Rest area",
+    fastFood: "Fast food",
+    coffeeShop: "Coffee shop",
+    groceryStore: "Grocery store",
+    bigBoxStore: "Big box store",
+    mall: "Mall / Shopping center",
+    park: "Park",
+    library: "Library",
+    visitorCenter: "Visitor center",
+    airport: "Airport",
+    transitStation: "Transit station",
+    campground: "Campground",
+    recreationCenter: "Recreation center",
+    gym: "Gym / Fitness center",
+    other: "Other",
+  };
+  return typeof raw === "string" && Object.hasOwn(labels, raw) ? labels[raw] : undefined;
+};
 const storageType = (label: string) => ({ "Gas station": "gasStation", "Truck stop": "truckStop", "Rest area": "restArea", "Fast food": "fastFood" }[label] ?? "gasStation");
 // Pin/score color uses the same quality bands as the iOS CleanScore badge.
 const colorFor = (score: number | null) => cleanScoreBadge(score).tone;
@@ -178,7 +200,9 @@ type StationDocument = {
 
 const mapStation = (stationDoc: StationDocument): LivePlace | null => {
   const data = stationDoc.data();
-  const type = displayType(String(data.stationType ?? data.locationType ?? "gasStation"));
+  // iOS writes a broad locationType alongside a narrower legacy stationType.
+  // Prefer the actual category; legacy gasStation can also describe parks or cafes.
+  const type = displayType(data.locationType) ?? displayType(data.stationType) ?? "Other";
   const reviewCount = Number(data.reviewCount ?? 0);
   if (data.latitude === null || data.latitude === undefined || data.longitude === null || data.longitude === undefined) return null;
   const latitude = Number(data.latitude);

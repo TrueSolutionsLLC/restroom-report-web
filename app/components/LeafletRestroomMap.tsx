@@ -4,25 +4,17 @@ import L from "leaflet";
 import { useCallback, useEffect, useRef } from "react";
 import type { LivePlace } from "../lib/firestore";
 import type { RestroomMapProps } from "./mapTypes";
+import { placeMarkerClass, placeMarkerLabel, placeMarkerMarkup } from "../lib/locationMarkers";
 import "leaflet/dist/leaflet.css";
-
-// Match the shared score recommendation tiers; category is shown separately.
-const colors: Record<string, string> = {
-  good: "#30b256",
-  fair: "#d9931f",
-  poor: "#d94b59",
-  unrated: "#f08a32",
-};
 
 const normalizeLongitude = (longitude: number) => ((longitude + 180) % 360 + 360) % 360 - 180;
 
 function markerIcon(place: LivePlace, active: boolean) {
-  const score = place.score?.toFixed(1) ?? "?";
   return L.divIcon({
     className: "rr-marker-wrap",
-    html: `<span class="rr-marker ${active ? "active" : ""}" style="--marker:${colors[place.color] ?? colors.unrated}"><b>${score}</b></span>`,
-    iconSize: active ? [48, 56] : [40, 48],
-    iconAnchor: active ? [24, 54] : [20, 46],
+    html: `<span class="rr-marker ${placeMarkerClass(place, active)}">${placeMarkerMarkup(place)}</span>`,
+    iconSize: [48, 58],
+    iconAnchor: [24, 52],
   });
 }
 
@@ -116,9 +108,17 @@ export default function LeafletRestroomMap({ places, selected, onSelect, userCoo
       }
       const element = marker.getElement();
       if (element) {
-        const label = `${place.name} — ${place.score === null ? "Unrated" : `${place.score.toFixed(1)}/10`}`;
+        const label = placeMarkerLabel(place, selected?.id === place.id);
         element.title = label;
         element.setAttribute("aria-label", label);
+        element.setAttribute("aria-pressed", String(selected?.id === place.id));
+        // These custom markers have no Leaflet popup, so handle both button keys.
+        element.onkeydown = event => {
+          if (event.key !== " " && event.key !== "Enter") return;
+          event.preventDefault();
+          const currentPlace = placesByIdRef.current.get(place.id);
+          if (currentPlace) onSelectRef.current(currentPlace);
+        };
       }
     }
   }, [places, selected?.id]);
