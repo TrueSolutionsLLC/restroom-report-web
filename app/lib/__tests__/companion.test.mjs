@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { COMPANION, reviewCompanionMoment, stationCompanionMoment } from "../companion.ts";
+import { COMPANION, reviewCompanionMoment, stationCompanionMoment, savedReviewDebrief } from "../companion.ts";
 
 test("unrated and unavailable scores cannot receive rating praise", () => {
  assert.equal(stationCompanionMoment(10, 0), COMPANION.unknown);
@@ -15,12 +15,19 @@ test("odor and cleanliness have distinct negative reactions", () => {
  for (const value of [0, 6, NaN, 1.5, false]) assert.equal(reviewCompanionMoment("odor", value), COMPANION.honest);
 });
 test("missing paper and soap trigger their respective prop reactions", () => {
- assert.equal(reviewCompanionMoment("paper", false).gesture, "empty");
- assert.equal(reviewCompanionMoment("soap", false).gesture, "wave");
+ assert.equal(reviewCompanionMoment("paper", false).gesture, "leaf");
+ assert.equal(reviewCompanionMoment("soap", false).gesture, "withdraw");
  assert.equal(reviewCompanionMoment("paper", true).gesture, "roll");
  assert.equal(reviewCompanionMoment("soap", true).gesture, "wash");
 });
 test("safety and access observations never trigger crude jokes", () => {
  for (const field of ["safe", "accessible", "changingTable", "sink"])
   for (const value of [true, false]) assert.equal(reviewCompanionMoment(field, value), COMPANION.honest);
+});
+
+test("saved verdict requires observed positive amenities",()=>{
+ assert.equal(savedReviewDebrief(5,5,{paper:null,soap:null}).title,"One less bathroom gamble");
+ assert.equal(savedReviewDebrief(5,5,{paper:true,soap:true}).title,"Royal Flush");
+ assert.equal(savedReviewDebrief(1,1,{paper:false,soap:false}).title,"Bathroom Survivor");
+ assert.equal(savedReviewDebrief(1,1,{paper:null,soap:null}).title,"Standards intact");
 });

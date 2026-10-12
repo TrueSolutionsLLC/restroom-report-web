@@ -638,3 +638,5 @@ h1, h2, h3, h4 { line-height: 1.15; }
 .map-toolbar>.travel-companion{grid-column:1/-1;color:var(--ink)}
 
 .sheet.rate>.travel-companion{position:sticky;top:0;z-index:2}.sidekick-situations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:20px}.sidekick-situations button{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:14px}.sidekick-page .travel-companion{margin-top:20px}
+
+.review-debrief-card{padding:20px;border-radius:20px;background:var(--jade);color:var(--on-primary);margin:16px 0;text-align:center}.review-debrief-card .eyebrow{color:inherit}.review-debrief-card small{display:block;margin-top:18px}.review-debrief-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}.review-debrief .muted{font-size:13px}

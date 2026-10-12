@@ -8,9 +8,9 @@ export const COMPANION = {
  unknown: {gesture: "shrug", lines: ["No ratings yet. My eyebrows remain undecided.", "Uncharted bathroom territory. An honest report helps."]},
  promising: {gesture: "cheer", lines: ["Those ratings look promising. My standards approve.", "Oh. We might be fancy-pooping."]},
  cautious: {gesture: "shrug", lines: ["Check the recent reports before committing your cheeks.", "I’d read the reviews. I have a vested interest."]},
- paperNone: {gesture: "empty", lines: ["Bold of them to assume you brought your own.", "This is a terrible time to discover minimalism."]},
+ paperNone: {gesture: "leaf", lines: ["Emergency kit: one leaf. I should’ve packed a forest.", "Bold of them to assume you brought your own."]},
  paperYes: {gesture: "roll", lines: ["Backup for your backside. Excellent.", "Finally. A place that understands the assignment."]},
- soapNone: {gesture: "wave", lines: ["Let’s make that a wave.", "The handshake has been cancelled."]},
+ soapNone: {gesture: "withdraw", lines: ["Let’s make that a wave.", "The handshake has been cancelled."]},
  soapYes: {gesture: "wash", lines: ["Look at us. Civilized.", "A little soap. A lot less side-eye."]},
  smellBad: {gesture: "walkout", lines: ["I came from an ass. I still have standards.", "I live in a toilet. This crossed a line."]},
  cleanBad: {gesture: "recoil", lines: ["The mop has apparently entered witness protection."]},
@@ -36,4 +36,16 @@ export function reviewCompanionMoment(field: string, value: number | boolean): C
 export function stationCompanionMoment(score: number | null, reports: number): CompanionMoment {
  if (reports <= 0) return COMPANION.unknown;
  return score !== null && Number.isFinite(score) && score >= 8 ? COMPANION.promising : COMPANION.cautious;
+}
+
+/** Prepared verdict only; no comment, identity, location, or history input. */
+export function savedReviewDebrief(rating: number, odor: number, answers: Record<string, boolean | null>): {title:string; line:string; moment:CompanionMoment} {
+ if(rating>=4&&odor>=4&&answers.paper===true&&answers.soap===true)
+  return {title:"Royal Flush",line:"Soap. Paper. Fresh air. I’ve accidentally booked the presidential suite.",moment:{gesture:"royal",lines:["I’ll be accepting tips in two-ply."]}};
+ if(answers.paper===false&&answers.soap===false)
+  return {title:"Bathroom Survivor",line:"No soap. No paper. I brought standards. Apparently I should’ve brought supplies.",moment:{gesture:"shrug",lines:["Please forward my mail to a better bathroom."]}};
+ if(answers.paper===false)return {title:"The missing roll",line:"They supplied the bathroom. You supply the plot twist.",moment:COMPANION.paperNone};
+ if(answers.soap===false)return {title:"Contactless greetings",line:"Nice enough stop. All future greetings will be contactless.",moment:COMPANION.soapNone};
+ if(odor<=2&&odor>=1)return {title:"Standards intact",line:"I came from an ass. I still have standards.",moment:COMPANION.okay};
+ return {title:"One less bathroom gamble",line:"One honest report. A better heads-up for the next traveler.",moment:COMPANION.savedReview};
 }

@@ -8,6 +8,7 @@ import type { User } from "firebase/auth";
 import { setFirebaseAnalyticsConsent } from "./lib/firebase";
 import AppDialog from "./components/AppDialog";
 import WelcomeGuide from "./components/WelcomeGuide";
+import ReviewDebrief from "./components/ReviewDebrief";
 import TravelCompanion, { COMPANION, useCompanionPreference, type CompanionMoment } from "./components/TravelCompanion";
 import { reviewCompanionMoment, stationCompanionMoment } from "./lib/companion";
 import PlaceCategoryIcon from "./components/PlaceCategoryIcon";
@@ -1007,7 +1008,7 @@ export default function Home() {
     </section>
 
     {panel !== "none" && !welcomeOpen && <AppDialog open label={panel === "issue" && issueSubmitted ? "Issue submitted" : panel === "rate" && submitted ? "Rating submitted" : panel === "detail" && selected ? selected.name : PANEL_LABELS[panel]} onClose={dismissPanel}><section className={`sheet ${panel} ${["account", "saved", "reports", "settings", "sidekick"].includes(panel) ? "page-sheet" : ""}`}>
-      <TravelCompanion enabled={mascotEnabled} reactionID={mascotReactionID} moment={panel === "sidekick" ? mascotMoment : panel === "rate" ? submitted ? COMPANION.savedReview : mascotMoment : panel === "saved" ? COMPANION.saved : panel === "settings" ? COMPANION.settings : panel === "account" || panel === "reports" ? COMPANION.profile : panel === "toofar" ? COMPANION.location : panel === "detail" && selected ? stationCompanionMoment(selected.score, selected.reports) : COMPANION.honest}/>
+      {!(panel === "rate" && submitted) && <TravelCompanion enabled={mascotEnabled} reactionID={mascotReactionID} moment={panel === "sidekick" ? mascotMoment : panel === "rate" ? submitted ? COMPANION.savedReview : mascotMoment : panel === "saved" ? COMPANION.saved : panel === "settings" ? COMPANION.settings : panel === "account" || panel === "reports" ? COMPANION.profile : panel === "toofar" ? COMPANION.location : panel === "detail" && selected ? stationCompanionMoment(selected.score, selected.reports) : COMPANION.honest}/>}
 
       <div className="sheet-handle"/><button className="sheet-close" aria-label="Close" onClick={dismissPanel}><Icon name="close"/></button>
 
@@ -1075,7 +1076,7 @@ export default function Home() {
         {reviewError && <div className="account-sync error" role="alert">{reviewError}</div>}
         <button disabled={!ratingComplete || busy || reviewBusy} className="submit" onClick={saveReview}>{reviewBusy ? "Checking & submitting…" : ratingComplete ? "Submit report" : "Complete required answers"}</button>
       </>}
-      {panel === "rate" && submitted && <div className="thanks"><div className="thanks-rings"><span><Icon name="check"/></span></div><p className="eyebrow">Rating submitted</p><h2>You helped the next traveler.</h2><p>Your fresh report makes Restroom Report more useful and trustworthy.</p><button className="submit" onClick={dismissPanel}>Back to the map</button><button className="text-button" onClick={() => navigatePanel("detail")}>View this restroom</button></div>}
+      {panel === "rate" && submitted && <div className="thanks"><div className="thanks-rings"><span><Icon name="check"/></span></div><p className="eyebrow">Rating submitted</p><ReviewDebrief rating={rating} odor={odor} answers={answers} enabled={mascotEnabled}/><button className="submit" onClick={dismissPanel}>Back to the map</button><button className="text-button" onClick={() => navigatePanel("detail")}>View this restroom</button></div>}
 
       {panel === "add" && <>
         <div className="add-topbar"><button className="cancel-link" onClick={dismissPanel}>Cancel</button><h2>Add Restroom Location</h2></div>
