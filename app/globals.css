@@ -73,7 +73,7 @@ a { color: var(--jade); text-underline-offset: 3px; }
 button, input, select, textarea, a { outline-offset: 4px; }
 :focus-visible { outline: 3px solid var(--blue); }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 2px; }
-button svg[aria-hidden="true"], .app-shell svg[aria-hidden="true"]:not(.rr-welcome-illustration) { width: 22px; height: 22px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+button svg[aria-hidden="true"]:not(.place-marker-art):not(.place-category-glyph), .app-shell svg[aria-hidden="true"]:not(.rr-welcome-illustration):not(.place-marker-art):not(.place-category-glyph) { width: 22px; height: 22px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 h1, h2, h3, h4, p { overflow-wrap: anywhere; }
 h1, h2, h3, h4 { line-height: 1.15; }
 .eyebrow { margin: 0 0 8px; color: var(--jade); font-size: 11px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
@@ -142,17 +142,27 @@ h1, h2, h3, h4 { line-height: 1.15; }
 
 /* Score pins preserve provider data and the selected-place signal. */
 .rr-marker-wrap, .user-marker-wrap { background: transparent !important; border: 0 !important; }
-.rr-marker { display: grid; place-items: center; width: 44px; height: 44px; border: 3px solid #fff; border-radius: 50% 50% 50% 10px; background: var(--marker); color: #fff; transform: rotate(-45deg); box-shadow: 0 4px 12px rgb(19 45 52 / 30%); font-size: 13px; font-weight: 800; line-height: 1; }
-.rr-marker b { transform: rotate(45deg); }
-.rr-marker.active { box-shadow: 0 0 0 5px rgb(255 255 255 / 80%), 0 6px 18px rgb(19 45 52 / 35%); }
 .user-marker, .apple-user-location { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: rgb(49 95 128 / 20%); }
 .user-marker i, .apple-user-location i { display: block; width: 17px; height: 17px; border: 3px solid #fff; border-radius: 50%; background: #315f80; box-shadow: 0 2px 8px rgb(19 45 52 / 25%); }
-.apple-restroom-pin { --pin-color: #245f4e; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 3px solid #fff; border-radius: 50% 50% 50% 10px; background: var(--pin-color); color: #fff; transform: rotate(-45deg); transform-origin: center; box-shadow: 0 4px 12px rgb(19 45 52 / 30%); pointer-events: auto !important; }
-.apple-restroom-pin-label { transform: rotate(45deg); font-size: 13px; font-weight: 800; line-height: 1; }
-.apple-restroom-pin.active { box-shadow: 0 0 0 5px rgb(255 255 255 / 80%), 0 6px 18px rgb(19 45 52 / 35%); }
 .apple-map-loading { position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--canvas); color: var(--muted); font-size: 14px; font-weight: 600; }
 .apple-map-spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--jade); border-radius: 50%; animation: map-spin .8s linear infinite; }
 @keyframes map-spin { to { transform: rotate(360deg); } }
+
+/* Shared geometry and semantic colors across MapKit and Leaflet. */
+.place-marker { --pin-fill: var(--blue); --pin-stroke: var(--blue); --pin-foreground: var(--on-primary); display: block; width: 48px; height: 58px; padding: 0; border: 0; background: transparent; line-height: 1; transform-origin: 50% 90%; transition: transform .16s ease; filter: drop-shadow(0 3px 4px rgb(19 45 52 / 24%)); }
+.apple-restroom-pin { pointer-events: auto !important; }
+.place-marker.marker-status-discovered { --pin-fill: var(--surface); --pin-stroke: var(--muted); --pin-foreground: var(--ink); }
+.place-marker.marker-tone-good { --pin-fill: var(--good); --pin-stroke: var(--good); }
+.place-marker.marker-tone-fair { --pin-fill: var(--warning); --pin-stroke: var(--warning); }
+.place-marker.marker-tone-poor { --pin-fill: var(--danger); --pin-stroke: var(--danger); }
+.place-marker.active { transform: translateY(-2px) scale(1.06); }
+.place-marker-art { display: block; width: 48px; height: 58px; overflow: visible; fill: none; stroke: none; }
+.place-marker-body { fill: var(--pin-fill); stroke: var(--pin-stroke); stroke-width: 2; stroke-linejoin: round; }
+.place-marker-halo { fill: none; stroke: var(--jade); stroke-width: 9; stroke-linejoin: round; opacity: 0; }
+.place-marker.active .place-marker-halo { opacity: .38; }
+.place-marker-glyph { fill: none; stroke: var(--pin-foreground); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.place-marker-score { fill: var(--pin-foreground); stroke: none; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rr-marker-wrap:focus-visible, .apple-restroom-pin:focus-visible { outline: 3px solid var(--jade); outline-offset: 4px; border-radius: 12px; }
 
 /* Selected dock: names and supporting text wrap; every action remains reachable. */
 .place-card, .discovery-card { position: absolute; left: max(28px, env(safe-area-inset-left)); bottom: 28px; z-index: 8; width: 380px; max-width: calc(100% - 120px); max-height: var(--dock-height); padding: 20px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow); overflow-y: auto; scrollbar-width: thin; }
@@ -177,6 +187,13 @@ h1, h2, h3, h4 { line-height: 1.15; }
 .score.fair strong, .score-signal.fair strong { color: var(--warning); }
 .score.poor strong, .score-signal.poor strong { color: var(--danger); }
 .score.unrated strong, .score-signal.unrated strong { color: var(--muted); }
+.place-category-glyph { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+.score > .place-category-glyph, .score-signal > .place-category-glyph, .mini-score > .place-category-glyph { display: inline-block; width: 46px; height: 46px; padding: 10px; border: 1.5px solid var(--blue); border-radius: 14px; background: var(--blue); color: var(--on-primary); vertical-align: top; }
+.score-signal > .place-category-glyph { width: 52px; height: 52px; padding: 12px; border-radius: 16px; }
+.mini-score > .place-category-glyph { width: 36px; height: 36px; padding: 7px; border-radius: 11px; }
+.marker-status-discovered > .place-category-glyph { border-color: var(--muted); background: var(--surface); color: var(--ink); }
+.place-report-context { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .actions button { display: flex; align-items: center; justify-content: center; gap: 7px; flex: 1 1 135px; min-height: 48px; padding: 11px 10px; border: 1px solid var(--line); border-radius: 13px; background: transparent; color: var(--ink); font-size: 13px; font-weight: 650; }
 .actions .primary { background: var(--jade); color: var(--on-primary); border-color: var(--jade); }
@@ -602,7 +619,10 @@ h1, h2, h3, h4 { line-height: 1.15; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 @media (forced-colors: active) {
-  .rr-marker, .apple-restroom-pin { border-color: CanvasText; }
+  .place-marker-body { fill: Canvas; stroke: CanvasText; }
+  .place-marker-glyph { stroke: CanvasText; }
+  .place-marker-score { fill: CanvasText; }
+  .place-marker-halo { stroke: Highlight; }
   .rr-marker.active, .apple-restroom-pin.active { outline: 3px solid Highlight; }
   .submit, .filters .selected, .mobile-tabbar .active, .answer-grid button.active { border: 2px solid Highlight; }
 }
