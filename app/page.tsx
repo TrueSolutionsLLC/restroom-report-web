@@ -8,6 +8,8 @@ import type { User } from "firebase/auth";
 import { setFirebaseAnalyticsConsent } from "./lib/firebase";
 import AppDialog from "./components/AppDialog";
 import WelcomeGuide from "./components/WelcomeGuide";
+import TravelCompanion, { COMPANION, useCompanionPreference, type CompanionMoment } from "./components/TravelCompanion";
+import { reviewCompanionMoment, stationCompanionMoment } from "./lib/companion";
 import PlaceCategoryIcon from "./components/PlaceCategoryIcon";
 import { placeReportState, placeReportLabel, placeReportAction } from "./lib/locationMarkers";
 import { hasCompletedWelcomeGuide, completeWelcomeGuide } from "./lib/onboarding";
@@ -26,7 +28,7 @@ import { isWideViewport } from "./components/mapTypes";
 const RestroomMap = dynamic(() => import("./components/RestroomMap"), { ssr: false });
 type Coordinates = { latitude: number; longitude: number };
 type MapViewport = { center: Coordinates; bounds: GeoBounds; zoom: number };
-type Panel = "none" | "detail" | "rate" | "toofar" | "add" | "reports" | "account" | "install" | "getapp" | "saved" | "settings" | "issue";
+type Panel = "none" | "detail" | "rate" | "toofar" | "add" | "reports" | "account" | "install" | "getapp" | "saved" | "settings" | "issue" | "sidekick";
 type DeferredInstall = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 type AppPromotionPlatform = "ios" | "android" | "other";
 type AccountData = {
@@ -36,7 +38,7 @@ type AccountData = {
   errors: Partial<Record<"profile" | "reviews" | "reports" | "count" | "reputation", string>>;
 };
 
-const PANEL_LABELS: Record<Panel, string> = { none: "Nearby", detail: "Restroom details", rate: "Rate this restroom", toofar: "Location check", add: "Add a restroom", reports: "Your contributions", account: "Profile", install: "Install Restroom Report", getapp: "Get Restroom Report", saved: "Saved stops", settings: "Settings", issue: "Report an issue" };
+const PANEL_LABELS: Record<Panel, string> = { none: "Nearby", detail: "Restroom details", rate: "Rate this restroom", toofar: "Location check", add: "Add a restroom", reports: "Your contributions", account: "Profile", install: "Install Restroom Report", getapp: "Get Restroom Report", saved: "Saved stops", settings: "Settings", issue: "Report an issue", sidekick: "Meet your sidekick" };
 
 const APP_STORE_URL = "https://apps.apple.com/us/app/restroom-report/id6785755048";
 const APP_PROMOTION_DISMISSED_KEY = "rr-app-promotion-dismissed-at";
@@ -252,6 +254,11 @@ export default function Home() {
   const [rating, setRating] = useState(0), [odor, setOdor] = useState(0), [crowd, setCrowd] = useState<CrowdLevel>("light"), [comment, setComment] = useState("");
   const [answers, setAnswers] = useState<Record<string, boolean | null>>(() => Object.fromEntries(CHECKS.map(item => [item.key, null])));
   const [submitted, setSubmitted] = useState(false);
+  const [mascotEnabled, chooseMascot] = useCompanionPreference();
+  const [mascotMoment, setMascotMoment] = useState<CompanionMoment>(COMPANION.nearby);
+  const [mascotReactionID, setMascotReactionID] = useState(0);
+  const mascotReact = (moment: CompanionMoment) => { setMascotMoment(moment); setMascotReactionID(value => value + 1); };
+
   const [addForm, setAddForm] = useState({ name: "", brand: "", address: "", type: "Gas station", accessType: "unknown", layoutType: "unknown" });
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 3000); };
@@ -706,7 +713,7 @@ export default function Home() {
       if (request === issueRequest.current) setIssueError("Your issue report could not be submitted. Check your connection and try again.");
     } finally { if (request === issueRequest.current) setIssueBusy(false); }
   };
-  const startRating = () => { setPanel("rate"); setRating(0); setOdor(0); setCrowd("light"); setComment(""); setReviewError(""); setAnswers(Object.fromEntries(CHECKS.map(item => [item.key, null]))); setSubmitted(false); };
+  const startRating = () => { mascotReact(COMPANION.nearby); setPanel("rate"); setRating(0); setOdor(0); setCrowd("light"); setComment(""); setReviewError(""); setAnswers(Object.fromEntries(CHECKS.map(item => [item.key, null]))); setSubmitted(false); };
   const verifyNearby = async (place: LivePlace): Promise<ReviewProximityVerification> => {
     let position: GeolocationPosition;
     try { position = await freshPosition(); }
@@ -920,9 +927,9 @@ export default function Home() {
     <header className="topbar">
       <button className="brand" onClick={dismissPanel} aria-label="Restroom Report — Nearby"><span className="brandmark"><Image src="/restroom-brand-mark.svg" alt="" width={42} height={42} priority/></span><span className="brand-wordmark">Restroom Report<small className="brand-kicker">Know before you go.</small></span></button>
       <nav aria-label="Main navigation">
-        <button className={!["account", "reports", "settings", "saved"].includes(panel) ? "active" : ""} aria-current={!["account", "reports", "settings", "saved"].includes(panel) ? "page" : undefined} onClick={dismissPanel}><Icon name="map"/>Nearby</button>
+        <button className={!["account", "reports", "settings", "saved", "sidekick"].includes(panel) ? "active" : ""} aria-current={!["account", "reports", "settings", "saved", "sidekick"].includes(panel) ? "page" : undefined} onClick={dismissPanel}><Icon name="map"/>Nearby</button>
         <button className={panel === "saved" ? "active" : ""} aria-current={panel === "saved" ? "page" : undefined} onClick={() => navigatePanel("saved")}><Icon name="bookmark"/>Saved</button>
-        <button className={["account", "reports", "settings"].includes(panel) ? "active" : ""} aria-current={["account", "reports", "settings"].includes(panel) ? "page" : undefined} onClick={() => navigatePanel("account")}><Icon name="user"/>Profile</button>
+        <button className={["account", "reports", "settings", "sidekick"].includes(panel) ? "active" : ""} aria-current={["account", "reports", "settings", "sidekick"].includes(panel) ? "page" : undefined} onClick={() => navigatePanel("account")}><Icon name="user"/>Profile</button>
       </nav>
       <button className="header-install" onClick={activateBrand}><Icon name="install"/><span>Get the app</span></button>
       {showAppPromotion && panel === "none" && !welcomeOpen && <aside className="app-promotion" role="dialog" aria-modal="false" aria-label={promotionPlatform === "ios" ? "Get the iPhone app" : "Install Restroom Report"}>
@@ -948,6 +955,7 @@ export default function Home() {
         </div>}
       </div>}
       <div className="map-toolbar">
+      {panel === "none" && <TravelCompanion compact enabled={mascotEnabled}/>}
       <div className="discovery-heading"><p className="eyebrow">Restroom Report</p><h1>Find a better stop.</h1><p>Traveler reports. A clearer choice.</p></div>
       <form className="searchbox" onSubmit={event => { event.preventDefault(); searchLocation(); }}><Icon name="search"/><input aria-label="Search restrooms, places or cities" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search restrooms, places or cities"/><button type="submit" disabled={busy}>{busy ? "…" : "Go"}</button></form>
       <div className="filters" aria-label="Restroom categories">{TYPES.map(type => <button key={type} className={filter === type ? "selected" : ""} aria-pressed={filter === type} onClick={() => setFilter(type)}>{TYPE_LABELS[type]}</button>)}</div>
@@ -998,7 +1006,9 @@ export default function Home() {
       </nav>}
     </section>
 
-    {panel !== "none" && !welcomeOpen && <AppDialog open label={panel === "issue" && issueSubmitted ? "Issue submitted" : panel === "rate" && submitted ? "Rating submitted" : panel === "detail" && selected ? selected.name : PANEL_LABELS[panel]} onClose={dismissPanel}><section className={`sheet ${panel} ${["account", "saved", "reports", "settings"].includes(panel) ? "page-sheet" : ""}`}>
+    {panel !== "none" && !welcomeOpen && <AppDialog open label={panel === "issue" && issueSubmitted ? "Issue submitted" : panel === "rate" && submitted ? "Rating submitted" : panel === "detail" && selected ? selected.name : PANEL_LABELS[panel]} onClose={dismissPanel}><section className={`sheet ${panel} ${["account", "saved", "reports", "settings", "sidekick"].includes(panel) ? "page-sheet" : ""}`}>
+      <TravelCompanion enabled={mascotEnabled} reactionID={mascotReactionID} moment={panel === "sidekick" ? mascotMoment : panel === "rate" ? submitted ? COMPANION.savedReview : mascotMoment : panel === "saved" ? COMPANION.saved : panel === "settings" ? COMPANION.settings : panel === "account" || panel === "reports" ? COMPANION.profile : panel === "toofar" ? COMPANION.location : panel === "detail" && selected ? stationCompanionMoment(selected.score, selected.reports) : COMPANION.honest}/>
+
       <div className="sheet-handle"/><button className="sheet-close" aria-label="Close" onClick={dismissPanel}><Icon name="close"/></button>
 
       {panel === "detail" && selected && <>
@@ -1057,10 +1067,10 @@ export default function Home() {
       </div>}
 
       {panel === "rate" && selected && !submitted && <><p className="eyebrow">Your visit</p><h2>How was {selected.name}?</h2><p className="muted">{selected.source === "appleMaps" ? "Your first report adds this stop to Restroom Report. Complete the required checks. Comments are optional." : "Complete the required checks. Comments are optional."}</p>
-        <div className="rating-block"><label id="cleanliness-label">Cleanliness <b>{rating ? `${rating}/5` : "Required"}</b></label><div className="stars" role="group" aria-labelledby="cleanliness-label">{[1,2,3,4,5].map(value => <button key={value} className={rating >= value ? "on" : ""} onClick={() => setRating(value)} aria-label={`Cleanliness: ${value} of 5`} aria-pressed={rating === value}><Icon name="star"/></button>)}</div></div>
-        <div className="rating-block"><label id="odor-label">Odor <b>{odor ? `${odor}/5` : "Required"}</b></label><div className="odor-scale" role="group" aria-labelledby="odor-label">{[1,2,3,4,5].map(value => <button key={value} className={odor === value ? "on" : ""} onClick={() => setOdor(value)} aria-pressed={odor === value} aria-label={`Odor: ${["Very unpleasant", "Unpleasant", "Neutral", "Fresh", "Very fresh"][value-1]}`}><span>{value}</span><small>{["Very poor", "Poor", "Neutral", "Fresh", "Very fresh"][value-1]}</small></button>)}</div></div>
-        <label className="field-label">Quick checks <b>Yes or no</b></label><div className="answer-grid">{CHECKS.map(item => <div key={item.key}><span>{item.label}</span><button className={answers[item.key] === true ? "yes active" : "yes"} aria-label={`${item.label}: Yes`} aria-pressed={answers[item.key] === true} onClick={() => setAnswers(current => ({ ...current, [item.key]: true }))}>Yes</button><button className={answers[item.key] === false ? "no active" : "no"} aria-label={`${item.label}: No`} aria-pressed={answers[item.key] === false} onClick={() => setAnswers(current => ({ ...current, [item.key]: false }))}>No</button></div>)}</div>
-        <label className="form-label">Crowd level<select value={crowd} onChange={event => setCrowd(event.target.value as CrowdLevel)}>{CROWD_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <div className="rating-block"><label id="cleanliness-label">Cleanliness <b>{rating ? `${rating}/5` : "Required"}</b></label><div className="stars" role="group" aria-labelledby="cleanliness-label">{[1,2,3,4,5].map(value => <button key={value} className={rating >= value ? "on" : ""} onClick={() => { setRating(value); mascotReact(reviewCompanionMoment("rating", value)); }} aria-label={`Cleanliness: ${value} of 5`} aria-pressed={rating === value}><Icon name="star"/></button>)}</div></div>
+        <div className="rating-block"><label id="odor-label">Odor <b>{odor ? `${odor}/5` : "Required"}</b></label><div className="odor-scale" role="group" aria-labelledby="odor-label">{[1,2,3,4,5].map(value => <button key={value} className={odor === value ? "on" : ""} onClick={() => { setOdor(value); mascotReact(reviewCompanionMoment("odor", value)); }} aria-pressed={odor === value} aria-label={`Odor: ${["Very unpleasant", "Unpleasant", "Neutral", "Fresh", "Very fresh"][value-1]}`}><span>{value}</span><small>{["Very poor", "Poor", "Neutral", "Fresh", "Very fresh"][value-1]}</small></button>)}</div></div>
+        <label className="field-label">Quick checks <b>Yes or no</b></label><div className="answer-grid">{CHECKS.map(item => <div key={item.key}><span>{item.label}</span><button className={answers[item.key] === true ? "yes active" : "yes"} aria-label={`${item.label}: Yes`} aria-pressed={answers[item.key] === true} onClick={() => { setAnswers(current => ({ ...current, [item.key]: true })); mascotReact(reviewCompanionMoment(item.key, true)); }}>Yes</button><button className={answers[item.key] === false ? "no active" : "no"} aria-label={`${item.label}: No`} aria-pressed={answers[item.key] === false} onClick={() => { setAnswers(current => ({ ...current, [item.key]: false })); mascotReact(reviewCompanionMoment(item.key, false)); }}>No</button></div>)}</div>
+        <label className="form-label">Crowd level<select value={crowd} onChange={event => { setCrowd(event.target.value as CrowdLevel); mascotReact(COMPANION.honest); }}>{CROWD_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label className="form-label">Optional comment<textarea value={comment} onChange={event => setComment(event.target.value)} maxLength={700} placeholder="Anything the next traveler should know?"/></label>
         {reviewError && <div className="account-sync error" role="alert">{reviewError}</div>}
         <button disabled={!ratingComplete || busy || reviewBusy} className="submit" onClick={saveReview}>{reviewBusy ? "Checking & submitting…" : ratingComplete ? "Submit report" : "Complete required answers"}</button>
@@ -1096,6 +1106,8 @@ export default function Home() {
         <button className="submit" disabled={busy} onClick={saveStation}><Icon name="plus"/>{busy ? "Finding address…" : "Add to Restroom Report"}</button>
       </>}
 
+      {panel === "sidekick" && <div className="sidekick-page"><button className="sheet-back" onClick={() => navigatePanel("settings")}><Icon name="back"/>Settings</button><p className="eyebrow">Your restroom sidekick</p><h2>Small companion.<br/>Big opinions.</h2><p className="muted">Tap a situation and let him have his moment. Just for fun. No review is submitted.</p><div className="sidekick-situations">{[{label:"Bad smell",moment:COMPANION.smellBad},{label:"No toilet paper",moment:COMPANION.paperNone},{label:"No soap",moment:COMPANION.soapNone},{label:"Paper stocked",moment:COMPANION.paperYes},{label:"Spotless",moment:COMPANION.cleanGood},{label:"Saved for later",moment:COMPANION.saved},{label:"Thanks for reporting",moment:COMPANION.savedReview}].map(item=><button key={item.label} onClick={()=>mascotReact(item.moment)}>{item.label}</button>)}</div>{!mascotEnabled && <p className="muted">Turn on mascot reactions in Settings to meet him.</p>}</div>}
+
       {panel === "saved" && <div className="saved-page">
         <div className="page-header"><p className="eyebrow">Your places</p><h2>Stops worth<br/>remembering.</h2><p className="muted">Keep good options close. Your Avoid list stays private.</p></div>
         <div className="saved-tabs" role="group" aria-label="Saved stop lists">
@@ -1118,7 +1130,7 @@ export default function Home() {
         <section className="settings-group"><h3>Appearance</h3><div className="appearance-options" role="group" aria-label="Appearance">{(["system", "light", "dark"] as const).map(option => <button key={option} aria-pressed={appearance === option} className={appearance === option ? "selected" : ""} onClick={() => chooseAppearance(option)}>{option[0].toUpperCase()+option.slice(1)}</button>)}</div></section>
         <section className="settings-group"><h3>Map</h3><label className="settings-row">Default map style<select value={mapStyle} onChange={event => chooseMapStyle(event.target.value as "standard" | "satellite")}><option value="standard">Standard</option><option value="satellite">Satellite</option></select></label></section>
         <section className="settings-group"><h3>Privacy</h3><label className="settings-row"><span>Usage analytics<small>Help improve the app with optional usage data.</small></span><input type="checkbox" checked={cookieConsent === "accepted"} onChange={event => setCookieConsent(event.target.checked ? "accepted" : "declined")}/></label><Link className="settings-row" href="/privacy">Privacy policy<Icon name="chevron"/></Link></section>
-        <section className="settings-group"><h3>Getting started</h3><button className="settings-row" onClick={replayWelcome}>Replay welcome guide<Icon name="chevron"/></button><button className="settings-row" onClick={activateBrand}>Get the app<Icon name="chevron"/></button><Link className="settings-row" href="/support">Help & support<Icon name="chevron"/></Link><Link className="settings-row" href="/terms">Terms of use<Icon name="chevron"/></Link></section>
+        <section className="settings-group"><h3>Your sidekick</h3><button className="settings-row" onClick={() => { mascotReact(COMPANION.welcome); navigatePanel("sidekick"); }}>Meet your sidekick<Icon name="chevron"/></button><label className="settings-row"><span>Mascot reactions<small>Keep your restroom sidekick around the app</small></span><input type="checkbox" checked={mascotEnabled} onChange={event => chooseMascot(event.target.checked)}/></label></section><section className="settings-group"><h3>Getting started</h3><button className="settings-row" onClick={replayWelcome}>Replay welcome guide<Icon name="chevron"/></button><button className="settings-row" onClick={activateBrand}>Get the app<Icon name="chevron"/></button><Link className="settings-row" href="/support">Help & support<Icon name="chevron"/></Link><Link className="settings-row" href="/terms">Terms of use<Icon name="chevron"/></Link></section>
         <section className="settings-group"><h3>Account</h3><div className="settings-row"><span>{profileName}<small>{!user ? "Connecting" : user.isAnonymous ? "Guest account" : "Signed-in account"}</small></span></div>{user?.isAnonymous && <button className="settings-row" onClick={() => navigatePanel("account")}>Protect your contributions with sign-in<Icon name="chevron"/></button>}</section>
       </div>}
 
@@ -1181,10 +1193,10 @@ export default function Home() {
       {["reports", "account", "saved", "settings"].includes(panel) && <nav className="mobile-tabbar panel-tabbar" aria-label="Primary">
         <button onClick={dismissPanel}><Icon name="map"/><span>Nearby</span></button>
         <button className={panel === "saved" ? "active" : ""} onClick={() => navigatePanel("saved")}><Icon name="bookmark"/><span>Saved</span></button>
-        <button className={["account", "reports", "settings"].includes(panel) ? "active" : ""} onClick={() => navigatePanel("account")}><Icon name="user"/><span>Profile</span></button>
+        <button className={["account", "reports", "settings", "sidekick"].includes(panel) ? "active" : ""} onClick={() => navigatePanel("account")}><Icon name="user"/><span>Profile</span></button>
       </nav>}
     </section></AppDialog>}
-    {welcomeReady && cookieConsent !== "unset" && <WelcomeGuide open={welcomeOpen} onFinish={finishWelcome} onLocate={findMe} onAuthenticate={authenticate} member={Boolean(user && !user.isAnonymous)} accountConnecting={!user && !accountAuthError}/>}
+    {welcomeReady && cookieConsent !== "unset" && <WelcomeGuide mascotEnabled={mascotEnabled} open={welcomeOpen} onFinish={finishWelcome} onLocate={findMe} onAuthenticate={authenticate} member={Boolean(user && !user.isAnonymous)} accountConnecting={!user && !accountAuthError}/>}
     {toast && <div className="toast" role="status"><Icon name="check"/>{toast}</div>}
     {cookieConsent === "unset" && <div className="cookie-banner" role="dialog" aria-label="Cookie notice">
       <p>We use Google Analytics (via Firebase) to understand how Restroom Report is used. Analytics cookies are only set if you accept. See our <Link href="/privacy">privacy policy</Link>.</p>

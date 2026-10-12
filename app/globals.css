@@ -626,3 +626,15 @@ h1, h2, h3, h4 { line-height: 1.15; }
   .rr-marker.active, .apple-restroom-pin.active { outline: 3px solid Highlight; }
   .submit, .filters .selected, .mobile-tabbar .active, .answer-grid button.active { border: 2px solid Highlight; }
 }
+
+/* One consistent, offline character; captions stay outside the artwork. */
+.travel-companion{display:flex;align-items:center;gap:12px;width:100%;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:inherit;text-align:left;cursor:pointer;font:inherit;min-height:88px}
+.travel-companion iframe{width:92px;height:86px;flex:none;border:0;pointer-events:none;background:transparent}
+.travel-companion span{flex:1;min-width:0}.travel-companion small{display:block;color:var(--jade);font-size:10px;font-weight:800;letter-spacing:.8px;margin-bottom:5px}.travel-companion strong{display:block;font-size:14px;line-height:1.4}
+.travel-companion.compact{padding:6px 10px;margin:0 0 8px;min-height:58px}.travel-companion.compact iframe{width:62px;height:58px}.travel-companion.compact strong{font-size:12px}
+.travel-companion:focus-visible{outline:3px solid #24644f;outline-offset:3px}.sheet>.travel-companion{margin-top:32px}
+@media(max-width:380px){.travel-companion{gap:8px}.travel-companion iframe{width:70px;height:70px}}
+
+.map-toolbar>.travel-companion{grid-column:1/-1;color:var(--ink)}
+
+.sheet.rate>.travel-companion{position:sticky;top:0;z-index:2}.sidekick-situations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:20px}.sidekick-situations button{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:14px}.sidekick-page .travel-companion{margin-top:20px}

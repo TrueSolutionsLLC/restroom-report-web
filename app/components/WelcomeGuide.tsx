@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import TravelCompanion, { COMPANION } from "./TravelCompanion";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import "./welcome-guide.css";
 
 export type WelcomeGuideProps = {
   open: boolean;
+  mascotEnabled?: boolean;
   onFinish: () => void;
   onLocate: () => Promise<boolean>;
   onAuthenticate: (provider: "google" | "apple") => Promise<boolean>;
@@ -68,7 +70,7 @@ function GuideIllustration({ step, id }: { step: number; id: string }) {
   </svg>;
 }
 
-function WelcomeGuideDialog({ onFinish, onLocate, onAuthenticate, member, accountConnecting = false }: Omit<WelcomeGuideProps, "open">) {
+function WelcomeGuideDialog({ mascotEnabled = true, onFinish, onLocate, onAuthenticate, member, accountConnecting = false }: Omit<WelcomeGuideProps, "open">) {
   const [step, setStep] = useState(0);
   const [pending, setPending] = useState<"location" | "google" | "apple" | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -167,6 +169,7 @@ function WelcomeGuideDialog({ onFinish, onLocate, onAuthenticate, member, accoun
     <div className="rr-welcome-layout">
       <aside className="rr-welcome-art">
         <div className="rr-welcome-brand"><Image src="/restroom-brand-mark.svg" width={38} height={38} alt=""/><span>Restroom <strong>Report</strong></span></div>
+        <TravelCompanion enabled={mascotEnabled} moment={step === 0 ? COMPANION.welcome : step === 1 ? COMPANION.nearby : COMPANION.profile}/>
         <div className="rr-welcome-artwork"><GuideIllustration step={step} id={id}/></div>
         <div className="rr-welcome-art-caption"><span>Know before you go.</span><p>A little more certainty.<br/>A better stop ahead.</p></div>
       </aside>
@@ -201,8 +204,8 @@ function WelcomeGuideDialog({ onFinish, onLocate, onAuthenticate, member, accoun
   </dialog>;
 }
 
-export default function WelcomeGuide({ open, ...props }: WelcomeGuideProps) {
+export default function WelcomeGuide({ mascotEnabled = true, open, ...props }: WelcomeGuideProps) {
   // Root checks completion after mount. A closed guide renders identically on
   // server and client, and every explicit replay begins at the first step.
-  return open ? <WelcomeGuideDialog {...props}/> : null;
+  return open ? <WelcomeGuideDialog mascotEnabled={mascotEnabled} {...props}/> : null;
 }
