@@ -8,6 +8,8 @@ import type { User } from "firebase/auth";
 import { setFirebaseAnalyticsConsent } from "./lib/firebase";
 import AppDialog from "./components/AppDialog";
 import WelcomeGuide from "./components/WelcomeGuide";
+import GuidedReviewForm from "./components/GuidedReviewForm";
+import PracticeReview from "./components/PracticeReview";
 import ReviewDebrief from "./components/ReviewDebrief";
 import TravelCompanion, { COMPANION, useCompanionPreference, type CompanionMoment } from "./components/TravelCompanion";
 import { reviewCompanionMoment, stationCompanionMoment } from "./lib/companion";
@@ -22,7 +24,7 @@ import {
   subscribeToUserIssueReports, subscribeToUserProfile, subscribeToUserReviews, subscribeToUserReviewCount, subscribeToUserReputation,
   type GeoBounds, type LivePlace, type StationReview, type StationIssueSignal, type UserIssueReport, type UserProfile, type UserReview, type TravelerReputationSummary,
 } from "./lib/firestore";
-import { CROWD_OPTIONS, RESTROOM_ACCESS_OPTIONS, RESTROOM_LAYOUT_OPTIONS, calculateCleanScore, cleanScoreBadge, evaluateReviewProximity, type CrowdLevel, type ReviewProximityVerification } from "./lib/reviewContract";
+import { RESTROOM_ACCESS_OPTIONS, RESTROOM_LAYOUT_OPTIONS, calculateCleanScore, cleanScoreBadge, evaluateReviewProximity, type CrowdLevel, type ReviewProximityVerification } from "./lib/reviewContract";
 import { TRAVELER_LEVEL_LABELS } from "./lib/reputation";
 import { isWideViewport } from "./components/mapTypes";
 
@@ -232,6 +234,7 @@ export default function Home() {
   const [existingAccountProvider, setExistingAccountProvider] = useState<"google" | "apple" | null>(null);
   const [proximityMessage, setProximityMessage] = useState("");
   const [reviewError, setReviewError] = useState("");
+  const [showReviewPractice, setShowReviewPractice] = useState(false);
   const ratingRequestSequence = useRef(0);
   const ratingOperation = useRef<{ request: number; stationId: string } | null>(null);
   const lastAuthUserId = useRef("");
@@ -1008,7 +1011,7 @@ export default function Home() {
     </section>
 
     {panel !== "none" && !welcomeOpen && <AppDialog open label={panel === "issue" && issueSubmitted ? "Issue submitted" : panel === "rate" && submitted ? "Rating submitted" : panel === "detail" && selected ? selected.name : PANEL_LABELS[panel]} onClose={dismissPanel}><section className={`sheet ${panel} ${["account", "saved", "reports", "settings", "sidekick"].includes(panel) ? "page-sheet" : ""}`}>
-      {!(panel === "rate" && submitted) && <TravelCompanion enabled={mascotEnabled} reactionID={mascotReactionID} moment={panel === "sidekick" ? mascotMoment : panel === "rate" ? submitted ? COMPANION.savedReview : mascotMoment : panel === "saved" ? COMPANION.saved : panel === "settings" ? COMPANION.settings : panel === "account" || panel === "reports" ? COMPANION.profile : panel === "toofar" ? COMPANION.location : panel === "detail" && selected ? stationCompanionMoment(selected.score, selected.reports) : COMPANION.honest}/>}
+      {!(panel === "rate" && submitted) && !(panel === "sidekick" && showReviewPractice) && <TravelCompanion enabled={mascotEnabled} reactionID={mascotReactionID} moment={panel === "sidekick" ? mascotMoment : panel === "rate" ? submitted ? COMPANION.savedReview : mascotMoment : panel === "saved" ? COMPANION.saved : panel === "settings" ? COMPANION.settings : panel === "account" || panel === "reports" ? COMPANION.profile : panel === "toofar" ? COMPANION.location : panel === "detail" && selected ? stationCompanionMoment(selected.score, selected.reports) : COMPANION.honest}/>}
 
       <div className="sheet-handle"/><button className="sheet-close" aria-label="Close" onClick={dismissPanel}><Icon name="close"/></button>
 
@@ -1067,16 +1070,8 @@ export default function Home() {
         <button className="text-button" onClick={() => directions(selected)}>Directions to {selected.name}</button>
       </div>}
 
-      {panel === "rate" && selected && !submitted && <><p className="eyebrow">Your visit</p><h2>How was {selected.name}?</h2><p className="muted">{selected.source === "appleMaps" ? "Your first report adds this stop to Restroom Report. Complete the required checks. Comments are optional." : "Complete the required checks. Comments are optional."}</p>
-        <div className="rating-block"><label id="cleanliness-label">Cleanliness <b>{rating ? `${rating}/5` : "Required"}</b></label><div className="stars" role="group" aria-labelledby="cleanliness-label">{[1,2,3,4,5].map(value => <button key={value} className={rating >= value ? "on" : ""} onClick={() => { setRating(value); mascotReact(reviewCompanionMoment("rating", value)); }} aria-label={`Cleanliness: ${value} of 5`} aria-pressed={rating === value}><Icon name="star"/></button>)}</div></div>
-        <div className="rating-block"><label id="odor-label">Odor <b>{odor ? `${odor}/5` : "Required"}</b></label><div className="odor-scale" role="group" aria-labelledby="odor-label">{[1,2,3,4,5].map(value => <button key={value} className={odor === value ? "on" : ""} onClick={() => { setOdor(value); mascotReact(reviewCompanionMoment("odor", value)); }} aria-pressed={odor === value} aria-label={`Odor: ${["Very unpleasant", "Unpleasant", "Neutral", "Fresh", "Very fresh"][value-1]}`}><span>{value}</span><small>{["Very poor", "Poor", "Neutral", "Fresh", "Very fresh"][value-1]}</small></button>)}</div></div>
-        <label className="field-label">Quick checks <b>Yes or no</b></label><div className="answer-grid">{CHECKS.map(item => <div key={item.key}><span>{item.label}</span><button className={answers[item.key] === true ? "yes active" : "yes"} aria-label={`${item.label}: Yes`} aria-pressed={answers[item.key] === true} onClick={() => { setAnswers(current => ({ ...current, [item.key]: true })); mascotReact(reviewCompanionMoment(item.key, true)); }}>Yes</button><button className={answers[item.key] === false ? "no active" : "no"} aria-label={`${item.label}: No`} aria-pressed={answers[item.key] === false} onClick={() => { setAnswers(current => ({ ...current, [item.key]: false })); mascotReact(reviewCompanionMoment(item.key, false)); }}>No</button></div>)}</div>
-        <label className="form-label">Crowd level<select value={crowd} onChange={event => { setCrowd(event.target.value as CrowdLevel); mascotReact(COMPANION.honest); }}>{CROWD_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className="form-label">Optional comment<textarea value={comment} onChange={event => setComment(event.target.value)} maxLength={700} placeholder="Anything the next traveler should know?"/></label>
-        {reviewError && <div className="account-sync error" role="alert">{reviewError}</div>}
-        <button disabled={!ratingComplete || busy || reviewBusy} className="submit" onClick={saveReview}>{reviewBusy ? "Checking & submitting…" : ratingComplete ? "Submit report" : "Complete required answers"}</button>
-      </>}
-      {panel === "rate" && submitted && <div className="thanks"><div className="thanks-rings"><span><Icon name="check"/></span></div><p className="eyebrow">Rating submitted</p><ReviewDebrief rating={rating} odor={odor} answers={answers} enabled={mascotEnabled}/><button className="submit" onClick={dismissPanel}>Back to the map</button><button className="text-button" onClick={() => navigatePanel("detail")}>View this restroom</button></div>}
+      {panel === "rate" && selected && !submitted && <><p className="muted">{selected.name}</p><GuidedReviewForm key={selected.id} rating={rating} odor={odor} answers={answers} crowd={crowd} comment={comment} busy={busy || reviewBusy} error={reviewError} complete={ratingComplete} star={<Icon name="star"/>} onRating={setRating} onOdor={setOdor} onAnswer={(key,value)=>setAnswers(current=>({...current,[key]:value}))} onCrowd={setCrowd} onComment={setComment} onReact={mascotReact} onSubmit={saveReview}/></>}
+      {panel === "rate" && submitted && <div className="thanks"><div className="thanks-rings"><span><Icon name="check"/></span></div><p className="eyebrow">Rating submitted</p><ReviewDebrief key={String(mascotEnabled)} rating={rating} odor={odor} answers={answers} enabled={mascotEnabled}/><button className="submit" onClick={dismissPanel}>Back to the map</button><button className="text-button" onClick={() => navigatePanel("detail")}>View this restroom</button></div>}
 
       {panel === "add" && <>
         <div className="add-topbar"><button className="cancel-link" onClick={dismissPanel}>Cancel</button><h2>Add Restroom Location</h2></div>
@@ -1107,7 +1102,8 @@ export default function Home() {
         <button className="submit" disabled={busy} onClick={saveStation}><Icon name="plus"/>{busy ? "Finding address…" : "Add to Restroom Report"}</button>
       </>}
 
-      {panel === "sidekick" && <div className="sidekick-page"><button className="sheet-back" onClick={() => navigatePanel("settings")}><Icon name="back"/>Settings</button><p className="eyebrow">Your restroom sidekick</p><h2>Small companion.<br/>Big opinions.</h2><p className="muted">Tap a situation and let him have his moment. Just for fun. No review is submitted.</p><div className="sidekick-situations">{[{label:"Bad smell",moment:COMPANION.smellBad},{label:"No toilet paper",moment:COMPANION.paperNone},{label:"No soap",moment:COMPANION.soapNone},{label:"Paper stocked",moment:COMPANION.paperYes},{label:"Spotless",moment:COMPANION.cleanGood},{label:"Saved for later",moment:COMPANION.saved},{label:"Thanks for reporting",moment:COMPANION.savedReview}].map(item=><button key={item.label} onClick={()=>mascotReact(item.moment)}>{item.label}</button>)}</div>{!mascotEnabled && <p className="muted">Turn on mascot reactions in Settings to meet him.</p>}</div>}
+      {panel === "sidekick" && showReviewPractice && <PracticeReview enabled={mascotEnabled} onClose={()=>setShowReviewPractice(false)}/>}
+      {panel === "sidekick" && !showReviewPractice && <div className="sidekick-page"><button className="sheet-back" onClick={() => navigatePanel("settings")}><Icon name="back"/>Settings</button><p className="eyebrow">Your restroom sidekick</p><h2>Small companion.<br/>Big opinions.</h2><p className="muted">Tap a situation and let him have his moment. Just for fun. No review is submitted.</p><button className="submit" onClick={()=>setShowReviewPractice(true)}>Try the review cards</button><div className="sidekick-situations">{[{label:"Bad smell",moment:COMPANION.smellBad},{label:"No toilet paper",moment:COMPANION.paperNone},{label:"No soap",moment:COMPANION.soapNone},{label:"Paper stocked",moment:COMPANION.paperYes},{label:"Spotless",moment:COMPANION.cleanGood},{label:"Saved for later",moment:COMPANION.saved},{label:"Thanks for reporting",moment:COMPANION.savedReview}].map(item=><button key={item.label} onClick={()=>mascotReact(item.moment)}>{item.label}</button>)}</div>{!mascotEnabled && <p className="muted">Turn on mascot reactions in Settings to meet him.</p>}</div>}
 
       {panel === "saved" && <div className="saved-page">
         <div className="page-header"><p className="eyebrow">Your places</p><h2>Stops worth<br/>remembering.</h2><p className="muted">Keep good options close. Your Avoid list stays private.</p></div>
