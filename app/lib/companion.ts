@@ -2,6 +2,8 @@ export type CompanionMoment = { gesture: string; lines: readonly string[] };
 export const COMPANION = {
  welcome: {gesture: "wave", lines: ["I’m your restroom sidekick. Terrible résumé. Excellent standards.", "Small companion. Very personal business."]},
  nearby: {gesture: "idle", lines: ["Let’s find somewhere worthy of your cheeks.", "A little planning. A lot less panic.", "Your next stop deserves more than a desperate guess."]},
+ favorites: {gesture:"roll",lines:["Future you has excellent taste.","Your cheeks have a shortlist. Very exclusive."]},
+ avoids: {gesture:"shrug",lines:["We remember. We don’t return.","A grudge? No. Route planning with experience."]},
  saved: {gesture: "roll", lines: ["Emergency planning. Highly recommended.", "Your backside called. It appreciates the backup plan."]},
  profile: {gesture: "salute", lines: ["Helping strangers dodge bad bathrooms. Weirdly noble.", "You bring the reports. I bring the questionable career choice."]},
  settings: {gesture: "idle", lines: ["Your app. Your rules. My eyebrows are negotiable.", "Need less of me? Switch off mascot reactions below."]},
