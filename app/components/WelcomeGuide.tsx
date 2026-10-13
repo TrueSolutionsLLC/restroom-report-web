@@ -16,9 +16,9 @@ export type WelcomeGuideProps = {
 };
 
 const INTRO = [
-  { name: "Find", title: "Make the next stop\na good one.", description: "Find nearby restrooms, explore another area, and get directions when you’ve found your stop.", detail: "Start with the map. Search a city or choose Near me when you’re ready." },
-  { name: "Decide", title: "Know what you’re\nstopping for.", description: "Read the CleanScore, access details, and recent traveler reports together. Unrated stops are clearly marked.", detail: "Traveler reports describe a visit. Check their date before choosing your stop." },
-  { name: "Contribute", title: "Leave the road\na little better.", description: "Share a restroom review after your visit. A few honest details help the next traveler make a better choice.", detail: "Location is checked when you rate a stop. Your report includes verification details, not your precise coordinates." },
+  { name: "Meet", title: "Tiny sidekick.\nVery high standards.", description: "I’m your restroom sidekick. You choose the stop. I bring the eyebrows. Together, we take some of the gamble out of going.", detail: "Find nearby restrooms, compare recent traveler reports, and choose your next stop." },
+  { name: "Try", title: "Tell me what\nyou found.", description: "A few honest answers turn into useful reports—and a little performance from me. Try a pretend toilet-paper check below.", detail: "This is a pretend reaction. Nothing is posted and your profile stays unchanged." },
+  { name: "Help", title: "Your report.\nSomeone’s relief.", description: "Reviews help the next traveler. After yours saves, replay my verdict or share an illustrated joke without your name, location, or written note.", detail: "Real reviews still require a nearby location check. My jokes never change your answers." },
 ] as const;
 
 function Arrow({ back = false }: { back?: boolean }) {
@@ -72,6 +72,8 @@ function GuideIllustration({ step, id }: { step: number; id: string }) {
 
 function WelcomeGuideDialog({ mascotEnabled = true, onFinish, onLocate, onAuthenticate, member, accountConnecting = false }: Omit<WelcomeGuideProps, "open">) {
   const [step, setStep] = useState(0);
+  const [paperChoice, setPaperChoice] = useState<boolean | null>(null);
+  const [reaction, setReaction] = useState(0);
   const [pending, setPending] = useState<"location" | "google" | "apple" | null>(null);
   const [feedback, setFeedback] = useState("");
   const [locationReady, setLocationReady] = useState(false);
@@ -166,10 +168,10 @@ function WelcomeGuideDialog({ mascotEnabled = true, onFinish, onLocate, onAuthen
       : "Sign in to keep your ratings and saved stops with your account across iPhone and web. Exploring as a guest works too.";
 
   return <dialog ref={dialogRef} className="rr-welcome-dialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} onKeyDown={handleKeys} onCancel={event => { event.preventDefault(); finish(); }}>
-    <div className="rr-welcome-layout">
+    <div className={`rr-welcome-layout ${step < 3 ? "host-intro" : ""}`}>
       <aside className="rr-welcome-art">
         <div className="rr-welcome-brand"><Image src="/restroom-brand-mark.svg" width={38} height={38} alt=""/><span>Restroom <strong>Report</strong></span></div>
-        <TravelCompanion enabled={mascotEnabled} moment={step === 0 ? COMPANION.welcome : step === 1 ? COMPANION.nearby : COMPANION.profile}/>
+        <TravelCompanion enabled={mascotEnabled} moment={step === 3 ? COMPANION.location : COMPANION.profile}/>
         <div className="rr-welcome-artwork"><GuideIllustration step={step} id={id}/></div>
         <div className="rr-welcome-art-caption"><span>Know before you go.</span><p>A little more certainty.<br/>A better stop ahead.</p></div>
       </aside>
@@ -180,6 +182,8 @@ function WelcomeGuideDialog({ mascotEnabled = true, onFinish, onLocate, onAuthen
           <p className="rr-welcome-eyebrow">{step < 3 ? `${step + 1} of 3 · ${INTRO[step].name}` : step === 3 ? "Optional · Location" : "Optional · Account"}</p>
           <h2 id={`${id}-title`} ref={headingRef} tabIndex={-1}>{title}</h2>
           <p id={`${id}-description`} className="rr-welcome-description">{description}</p>
+          {step < 3 && <TravelCompanion hero enabled={mascotEnabled} reactionID={reaction} moment={step === 0 ? COMPANION.welcome : step === 2 ? COMPANION.profile : paperChoice === null ? {gesture:"shrug",lines:["Let’s see what I’m working with."]} : paperChoice ? {gesture:"roll",lines:["A whole roll? I should have dressed better."]} : {gesture:"empty",lines:["Bold of them to assume you brought your own."]}}/>}
+          {step === 1 && <div className="rr-welcome-demo"><small>PRETEND REVIEW · NOTHING IS POSTED</small><p>Was there toilet paper?</p><div>{[true,false].map(available => <button type="button" key={String(available)} aria-pressed={paperChoice === available} onClick={() => {setPaperChoice(available);setReaction(value => value+1);}}>{available ? "Stocked" : "None"}</button>)}</div><small>{mascotEnabled ? "Tap either answer again to replay his reaction." : "Mascot reactions are off. Real reports still work the same way."}</small></div>}
           {step < 3 && <div className="rr-welcome-note"><span aria-hidden="true">↗</span><p>{INTRO[step].detail}</p></div>}
           {step === 3 && <div className="rr-welcome-note"><span aria-hidden="true">◎</span><p>You’re in control. A rating needs a fresh location check when you visit; browsing doesn’t.</p></div>}
           {step === 4 && <div className="rr-welcome-note"><span aria-hidden="true">{locationReady ? "◎" : "↗"}</span><p>{locationReady ? "Location is ready. You can change access in your browser settings." : "Location is optional for exploring. Use Near me whenever you’re ready."}</p></div>}
