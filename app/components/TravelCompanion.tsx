@@ -20,7 +20,7 @@ function readTheme() { return getComputedStyle(document.documentElement).colorSc
 import { COMPANION, type CompanionMoment } from "../lib/companion";
 export { COMPANION } from "../lib/companion";
 export type { CompanionMoment } from "../lib/companion";
-export default function TravelCompanion({moment = COMPANION.nearby, compact = false, enabled = true, reactionID = 0}: {moment?: CompanionMoment; compact?: boolean; enabled?: boolean; reactionID?: number}) {
+export default function TravelCompanion({moment = COMPANION.nearby, compact = false, enabled = true, reactionID = 0, onReady}: {moment?: CompanionMoment; compact?: boolean; enabled?: boolean; reactionID?: number; onReady?:(frame:HTMLIFrameElement)=>void}) {
  const [thought, setThought] = useState(0);
  const dark = useSyncExternalStore(subscribeTheme, readTheme, () => false);
  const [revealed, setRevealed] = useState("");
@@ -32,7 +32,7 @@ export default function TravelCompanion({moment = COMPANION.nearby, compact = fa
  }, [sceneKey, moment.gesture]);
  if (!enabled) return null;
  return <button type="button" className={`travel-companion ${compact ? "compact" : ""}`} onClick={() => setThought(value => value + 1)} aria-label={`${moment.lines[thought % moment.lines.length]}. Tap for another thought.`}>
-   <iframe key={`${moment.gesture}-${thought}-${reactionID}`} src={`/travel-companion.html?gesture=${encodeURIComponent(moment.gesture)}&dark=${dark}`} sandbox="allow-scripts" title="Restroom sidekick" aria-hidden="true" tabIndex={-1}/>
+   <iframe onLoad={e=>onReady?.(e.currentTarget)} key={`${moment.gesture}-${thought}-${reactionID}`} src={`/travel-companion.html?gesture=${encodeURIComponent(moment.gesture)}&dark=${dark}`} sandbox="allow-scripts" title="Restroom sidekick" aria-hidden="true" tabIndex={-1}/>
    <span>{!compact && <small>YOUR RESTROOM SIDEKICK</small>}<strong>{moment.gesture === "walkout" && revealed !== sceneKey ? "One sniff. Immediate resignation." : moment.lines[thought % moment.lines.length]}</strong></span>
  </button>;
 }
